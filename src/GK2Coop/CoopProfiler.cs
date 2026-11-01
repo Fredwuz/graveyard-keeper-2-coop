@@ -39,9 +39,8 @@ namespace GK2Coop
         {
             "Update", "LateUpdate", "OnGUI", "Tick", "UpdateGameUi", "Draw", "DrawPlain",
             "RestyleOnLanguageChange", "PlaceHud", "VerifyNotLeaked", "UpdatePad", "RefreshReport",
-            "PollNetworkState", "DriveSessionAutomation", "PumpSaveTransfer", "DriveAutoStart",
-            "DriveConnectRetry", "DriveMovementProbe", "DriveClientStartDiagnostics",
-            "TryRunConfiguredStartupAction", "IsOnMainMenu", "EmitCensus", "EmitCounterSummary",
+            "PollNetworkState", "DriveSessionAutomation", "DriveAutoStart",
+            "DriveConnectRetry", "TryRunConfiguredStartupAction", "IsOnMainMenu", "EmitCensus", "EmitCounterSummary",
             "OnUnityLog", "OnLogEvent", "LogSnapshot", "RunSecondTicks", "WriteSnapshot",
             // Inside the heavier ticks: where their time goes.
             "Serialize", "SerializeInventory", "SendState", "SendInventory", "Classify", "Search", "Pump",

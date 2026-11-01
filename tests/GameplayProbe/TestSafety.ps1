@@ -3,7 +3,6 @@
 # test windows on a private desktop, muted at low priority, and the game's shared registry
 # preferences restored. The active user's desktop never receives their windows.
 
-$script:SteamInstallRoots = @('C:\Program Files (x86)\Steam', 'C:\Program Files\Steam')
 $script:GamePrefsKey = 'HKCU:\Software\Lazy Bear Games\Graveyard Keeper 2'
 $script:TestWindowGuards = New-Object System.Collections.ArrayList
 
@@ -118,10 +117,9 @@ public sealed class GK2CoopTestWindowGuard {
 
 function Assert-TestInstall([string]$Path) {
     $full = [IO.Path]::GetFullPath($Path).TrimEnd('\')
-    foreach ($root in $script:SteamInstallRoots) {
-        if ($full.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Refusing to test in the Steam install ($full). Use a copy such as D:\GK2Coop-FullHost."
-        }
+    # Any Steam library, not only the default one: the game can live in F:\SteamLibrary too.
+    if ($full -match '\\steamapps\\') {
+        throw "Refusing to test in the Steam install ($full). Use a copy such as testbed\GK2Coop-FullHost."
     }
     if (-not (Test-Path -LiteralPath (Join-Path $full 'GraveyardKeeper2.exe'))) { throw "No game copy at $full" }
 }

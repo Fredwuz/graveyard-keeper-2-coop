@@ -65,6 +65,25 @@ namespace GK2Coop
             return deserializeValue.MakeGenericMethod(type).Invoke(null, new[] { body, binaryFormat, null });
         }
 
+        /// <summary>
+        /// A generic method of the game's older <c>LazySerializer</c>: Serialize(T),
+        /// Deserialize(byte[]) or DeserializeInto(T, byte[]) — not the Stream overloads.
+        /// </summary>
+        internal static MethodInfo LazySerializerMethod(string name)
+        {
+            int count = name == "DeserializeInto" ? 2 : 1;
+            foreach (MethodInfo method in Plugin.FindGameType("LazyBearTechnology.LazySerializer").GetMethods(BindingFlags.Static | BindingFlags.Public))
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                if (method.Name == name && method.IsGenericMethodDefinition && parameters.Length == count &&
+                    (name == "Serialize" || parameters[count - 1].ParameterType == typeof(byte[])))
+                {
+                    return method;
+                }
+            }
+            throw new MissingMethodException("LazySerializer." + name);
+        }
+
         private static void Resolve()
         {
             if (serializeValue != null && deserializeValue != null)

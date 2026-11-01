@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using BepInEx.Logging;
@@ -80,7 +79,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("World values sync: " + Inner(ex).Message);
+                log.LogWarning("World values sync: " + Plugin.Unwrap(ex).Message);
                 nextCheck = UnityEngine.Time.unscaledTime + 30f;
             }
         }
@@ -100,7 +99,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("World values sync: could not send the host's values to client " + clientId + ": " + Inner(ex).Message);
+                log.LogWarning("World values sync: could not send the host's values to client " + clientId + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -140,7 +139,7 @@ namespace GK2Coop
             {
                 text.Append(value.Key).Append('\t').Append(value.Value.ToString("R", CultureInfo.InvariantCulture)).Append('\n');
             }
-            byte[] compressed = Compress(Encoding.UTF8.GetBytes(text.ToString()));
+            byte[] compressed = Gzip.Compress(Encoding.UTF8.GetBytes(text.ToString()));
             using (var writer = new FastBufferWriter(16 + compressed.Length, Allocator.Temp))
             {
                 writer.WriteValueSafe(compressed.Length);
@@ -181,7 +180,7 @@ namespace GK2Coop
                 byte[] compressed = new byte[length];
                 reader.ReadBytesSafe(ref compressed, length);
                 var values = new List<KeyValuePair<string, float>>();
-                foreach (string line in Encoding.UTF8.GetString(Decompress(compressed)).Split('\n'))
+                foreach (string line in Encoding.UTF8.GetString(Gzip.Decompress(compressed)).Split('\n'))
                 {
                     int tab = line.IndexOf('\t');
                     if (tab > 0 && IsWorldValue(line.Substring(0, tab)) &&
@@ -213,7 +212,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("World values sync: could not apply values from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("World values sync: could not apply values from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -300,37 +299,6 @@ namespace GK2Coop
                 parts.Add(values[i].Key + "=" + values[i].Value.ToString(CultureInfo.InvariantCulture));
             }
             return string.Join(", ", parts.ToArray()) + (values.Count > 5 ? ", … (" + values.Count + ")" : string.Empty);
-        }
-
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                input.CopyTo(output);
-                return output.ToArray();
-            }
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

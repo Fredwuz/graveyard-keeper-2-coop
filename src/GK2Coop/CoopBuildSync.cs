@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -141,12 +140,12 @@ namespace GK2Coop
             }
             try
             {
-                Send(netcode, null, kind, IdOf(built), null, Compress(CoopGameSerializer.Serialize(built)));
+                Send(netcode, null, kind, IdOf(built), null, Gzip.Compress(CoopGameSerializer.Serialize(built)));
                 log.LogInfo("Build sync: shared a new " + CoopDiagnostics.GetMember(built, "id") + " " + Short(IdOf(built)) + ".");
             }
             catch (Exception ex)
             {
-                log.LogWarning("Build sync: could not share a placed building: " + Inner(ex).Message);
+                log.LogWarning("Build sync: could not share a placed building: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -191,7 +190,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Build sync: could not share a removal: " + Inner(ex).Message);
+                log.LogWarning("Build sync: could not share a removal: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -362,7 +361,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Build sync: could not apply a building change from " + sender + " (kind " + kind + ", " + id + "): " + Inner(ex).Message + " at " + CoopDiagnostics.FirstFrames(Inner(ex)));
+                log.LogWarning("Build sync: could not apply a building change from " + sender + " (kind " + kind + ", " + id + "): " + Plugin.Unwrap(ex).Message + " at " + CoopDiagnostics.FirstFrames(Plugin.Unwrap(ex)));
             }
         }
 
@@ -372,7 +371,7 @@ namespace GK2Coop
             {
                 return null;
             }
-            object data = CoopGameSerializer.Deserialize(Plugin.FindGameType("WgoData"), Decompress(payload));
+            object data = CoopGameSerializer.Deserialize(Plugin.FindGameType("WgoData"), Gzip.Decompress(payload));
             if (data == null)
             {
                 return null;
@@ -460,37 +459,6 @@ namespace GK2Coop
         private static string Short(string id)
         {
             return string.IsNullOrEmpty(id) ? "?" : (id.Length > 8 ? id.Substring(0, 8) : id);
-        }
-
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                input.CopyTo(output);
-                return output.ToArray();
-            }
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

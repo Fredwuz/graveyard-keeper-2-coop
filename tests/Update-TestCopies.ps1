@@ -9,12 +9,12 @@
     to the exe from the Steam install into each copy. The Steam install is only read. Not touched in
     the copies: BepInEx (the mod, the probe, the configs), the Doorstop files, steam_appid.txt and
     the mod's guides. The old data folder of the first copy is kept once, as
-    D:\GK2Coop-GameData-<old version>, so the old version can still be tested.
+    testbed\GK2Coop-GameData-<old version>, so the old version can still be tested.
 #>
 [CmdletBinding()]
 param(
-    [string]$SteamGame = 'C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2',
-    [string[]]$Copies = @('D:\GK2Coop-FullHost', 'D:\GK2Coop-FullClient', 'D:\GK2Coop-FullHost2', 'D:\GK2Coop-FullClient2', 'D:\GK2Coop-FullClean')
+    [string]$SteamGame = (dotnet msbuild "$PSScriptRoot\..\src\GK2Coop\GK2Coop.csproj" -getProperty:GamePath),
+    [string[]]$Copies = @("$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost", "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient", "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost2", "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient2", "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClean")
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GameplayProbe\TestSafety.ps1')
@@ -43,7 +43,7 @@ foreach ($copy in $Copies) {
     $before = Get-GameVersion $copy
     if ($before.Hash -eq $target.Hash) { Write-Host "$copy is already on $($target.Version)"; continue }
     if (-not $kept) {
-        $backup = "D:\GK2Coop-GameData-$($before.Version)"
+        $backup = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-GameData-$($before.Version)"
         if (-not (Test-Path -LiteralPath $backup)) {
             robocopy (Join-Path $copy 'GraveyardKeeper2_Data') (Join-Path $backup 'GraveyardKeeper2_Data') /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
             if ($LASTEXITCODE -ge 8) { throw "Keeping the old data folder failed (robocopy $LASTEXITCODE)." }

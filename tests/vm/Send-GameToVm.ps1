@@ -1,10 +1,10 @@
 <#
-    Copies the joiner's test copy of the game (D:\GK2Coop-FullClient by default) into the test VM
+    Copies the joiner's test copy of the game (testbed\GK2Coop-FullClient by default) into the test VM
     (C:\GK2Coop\Game) through the guest agent. Run it while that copy is not running: a running
     game holds some of its files. -ModOnly sends just the mod's DLL (after a new build).
 #>
 param(
-    [string]$Source = 'D:\GK2Coop-FullClient',
+    [string]$Source = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient",
     [switch]$ModOnly
 )
 $ErrorActionPreference = 'Stop'

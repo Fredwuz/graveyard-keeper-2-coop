@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$HostPath = 'C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2',
-    [string]$ClientPath = 'D:\GK2Coop-FullClient',
+    [string]$HostPath = (dotnet msbuild "$PSScriptRoot\..\..\src\GK2Coop\GK2Coop.csproj" -getProperty:GamePath),
+    [string]$ClientPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient",
     [Parameter(Mandatory)][string]$OutputPath,
     # Reconnection is known to fail on this harness: a relaunched client's connection never
     # reaches the host at all, on loopback. Off by default so the suite reports what is true.

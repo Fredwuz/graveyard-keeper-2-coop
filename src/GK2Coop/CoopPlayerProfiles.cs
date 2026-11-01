@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using BepInEx;
@@ -241,13 +240,13 @@ namespace GK2Coop
                 {
                     return;
                 }
-                byte[] compressed = Compress(Serialize(playerData));
+                byte[] compressed = Gzip.Compress(Serialize(playerData));
                 SendChunks(netcode, NetworkManager.ServerClientId, Mode.Upload, compressed);
                 log.LogInfo($"Player profile: uploaded {compressed.Length} bytes ({reason}).");
             }
             catch (Exception ex)
             {
-                log.LogWarning("Player profile: could not upload this player's state: " + Inner(ex).Message);
+                log.LogWarning("Player profile: could not upload this player's state: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -263,7 +262,7 @@ namespace GK2Coop
             {
                 object live = LocalPlayerData();
                 object storedTalents = null;
-                object source = mode == Mode.Stored ? DeserializeBundle(Decompress(compressed), out storedTalents) : CreateFreshPlayer();
+                object source = mode == Mode.Stored ? DeserializeBundle(Gzip.Decompress(compressed), out storedTalents) : CreateFreshPlayer();
                 string before = Summary(live);
                 CopyState(source, live);
                 ApplyLook(live, mode == Mode.Stored ? GetField(source, "customization") : null);
@@ -284,7 +283,7 @@ namespace GK2Coop
             {
                 LastOutcome = "failed";
                 CoopStatus.Announce(L.T("Your inventory could not be restored. You have the host's copy for now."), true, 12f);
-                log.LogError("Player profile: could not apply " + mode + ": " + Inner(ex) +
+                log.LogError("Player profile: could not apply " + mode + ": " + Plugin.Unwrap(ex) +
                              " Uploads are off for this session so the stored state is kept.");
                 return false;
             }
@@ -335,7 +334,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Player profile: could not answer client " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Player profile: could not answer client " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -423,7 +422,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Player profile: dropped a malformed transfer from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Player profile: dropped a malformed transfer from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -435,7 +434,7 @@ namespace GK2Coop
                 return;
             }
             // Reject anything the game cannot read back before it replaces a good copy on disk.
-            Deserialize(Decompress(compressed));
+            Deserialize(Gzip.Decompress(compressed));
             string path = ProfilePath(key);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             string temp = path + ".tmp";
@@ -468,13 +467,13 @@ namespace GK2Coop
                 {
                     return;
                 }
-                object stored = Deserialize(Decompress(compressed));
+                object stored = Deserialize(Gzip.Decompress(compressed));
                 CopyInventory(stored, shadow, "inventory");
                 CopyInventory(stored, shadow, "toolBeltInventory");
             }
             catch (Exception ex)
             {
-                log.LogWarning("Player profile: could not refresh the host's copy of client " + clientId + ": " + Inner(ex).Message);
+                log.LogWarning("Player profile: could not refresh the host's copy of client " + clientId + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -586,7 +585,7 @@ namespace GK2Coop
                 catch (Exception ex)
                 {
                     setRaw.Invoke(targetRes, new object[] { atom.Key, atom.Value });
-                    log.LogInfo("Player profile: " + atom.Key + " restored without its HUD refresh (" + Inner(ex).GetType().Name + ").");
+                    log.LogInfo("Player profile: " + atom.Key + " restored without its HUD refresh (" + Plugin.Unwrap(ex).GetType().Name + ").");
                 }
             }
         }
@@ -611,7 +610,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Player profile: kept the current look; could not apply the stored one: " + Inner(ex).Message);
+                log.LogWarning("Player profile: kept the current look; could not apply the stored one: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -648,7 +647,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Player profile: could not return this player to their last position: " + Inner(ex).Message);
+                log.LogWarning("Player profile: could not return this player to their last position: " + Plugin.Unwrap(ex).Message);
                 return string.Empty;
             }
         }
@@ -700,7 +699,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Player profile: could not restore this player's talents: " + Inner(ex).Message);
+                log.LogWarning("Player profile: could not restore this player's talents: " + Plugin.Unwrap(ex).Message);
                 return string.Empty;
             }
         }
@@ -776,7 +775,7 @@ namespace GK2Coop
             }
             else
             {
-                MethodInfo deserialize = SerializerMethod("Deserialize", typeof(byte[]));
+                MethodInfo deserialize = CoopGameSerializer.LazySerializerMethod("Deserialize");
                 result = deserialize.MakeGenericMethod(Plugin.FindGameType("PlayerData")).Invoke(null, new object[] { raw });
             }
             if (result == null || GetField(result, "inventory") == null)
@@ -784,55 +783,6 @@ namespace GK2Coop
                 throw new InvalidDataException("stored player state did not deserialize to a player");
             }
             return result;
-        }
-
-        private static MethodInfo SerializerMethod(string name, Type parameter)
-        {
-            Type serializer = Plugin.FindGameType("LazyBearTechnology.LazySerializer");
-            foreach (MethodInfo method in serializer.GetMethods(BindingFlags.Static | BindingFlags.Public))
-            {
-                if (method.Name == name && method.IsGenericMethodDefinition)
-                {
-                    ParameterInfo[] parameters = method.GetParameters();
-                    // Serialize(T) and Deserialize(byte[]) — not the Stream overloads.
-                    if (parameters.Length == 1 && (name == "Serialize" || parameters[0].ParameterType == parameter))
-                    {
-                        return method;
-                    }
-                }
-            }
-            throw new MissingMethodException("LazySerializer." + name);
-        }
-
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, CompressionMode.Compress))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                var buffer = new byte[16384];
-                int read;
-                while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    output.Write(buffer, 0, read);
-                    if (output.Length > 64L * 1024 * 1024)
-                    {
-                        throw new InvalidDataException("player state too large");
-                    }
-                }
-                return output.ToArray();
-            }
         }
 
         private static object LocalPlayerData()
@@ -914,15 +864,6 @@ namespace GK2Coop
         private static string ShortKey(string key)
         {
             return string.IsNullOrEmpty(key) || key.Length < 8 ? "player ?" : "player " + key.Substring(0, 8);
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

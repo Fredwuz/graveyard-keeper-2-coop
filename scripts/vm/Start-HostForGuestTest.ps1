@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$SaveBackup = 'C:\FF\graveyard-keeper-2-coop\artifacts\save-backups\full-release-20260923-071217',
-    [string]$HostPath = 'C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2',
-    [string]$StatePath = 'C:\FF\graveyard-keeper-2-coop\artifacts\guest-test-state',
+    [string]$SaveBackup = "$PSScriptRoot\..\..\artifacts\save-backups\test-world",
+    [string]$HostPath = (dotnet msbuild "$PSScriptRoot\..\..\src\GK2Coop\GK2Coop.csproj" -getProperty:GamePath),
+    [string]$StatePath = "$PSScriptRoot\..\..\artifacts\guest-test-state",
     # Run again with -Stop to close the host and put everything back.
     [switch]$Stop
 )
@@ -13,7 +13,7 @@ param(
 # probe, and moves the temporary slot and any stored guest profiles into $StatePath.
 
 $ErrorActionPreference = 'Stop'
-$root = 'C:\FF\graveyard-keeper-2-coop'
+$root = "$PSScriptRoot\..\.."
 $saveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
 $config = Join-Path $HostPath 'BepInEx\config\com.fabio.gk2coop.cfg'
 $probe = Join-Path $HostPath 'BepInEx\plugins\GameplayProbe.dll'

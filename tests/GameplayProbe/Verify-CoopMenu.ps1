@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$GamePath = 'D:\GK2Coop-LocalClient',
+    [string]$GamePath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-LocalClient",
     [Parameter(Mandatory)][string]$OutputPath,
     [int]$MenuSeconds = 70
 )

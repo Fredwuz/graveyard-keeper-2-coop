@@ -9,9 +9,7 @@ param(
     [ValidateRange(1, 65535)]
     [int]$Port = 8889,
 
-    [string]$GamePath = 'D:\SteamLibrary\steamapps\common\Graveyard Keeper 2 Demo',
-
-    [switch]$EnableMovementProbe
+    [string]$GamePath = 'D:\SteamLibrary\steamapps\common\Graveyard Keeper 2 Demo'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,19 +27,17 @@ if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
 }
 
 $configText = Get-Content -LiteralPath $configPath -Raw
-$requiredKeys = @('Address', 'Port', 'StartupMode', 'MovementProbe')
+$requiredKeys = @('Address', 'Port', 'StartupMode')
 foreach ($key in $requiredKeys) {
     if ($configText -notmatch "(?m)^$([regex]::Escape($key))\s*=") {
         throw "The configuration is missing the expected key '$key': $configPath"
     }
 }
 
-$probeValue = if ($EnableMovementProbe) { 'true' } else { 'false' }
 $configText = [regex]::Replace($configText, '(?m)^Address\s*=.*$', "Address = $Address")
 $configText = [regex]::Replace($configText, '(?m)^Port\s*=.*$', "Port = $Port")
 $configText = [regex]::Replace($configText, '(?m)^StartupMode\s*=.*$', "StartupMode = $Mode")
-$configText = [regex]::Replace($configText, '(?m)^MovementProbe\s*=.*$', "MovementProbe = $probeValue")
 Set-Content -LiteralPath $configPath -Value $configText
 
-Write-Host "Configured GK2Coop: Mode=$Mode Address=$Address Port=$Port MovementProbe=$probeValue"
+Write-Host "Configured GK2Coop: Mode=$Mode Address=$Address Port=$Port"
 Write-Host "Config: $configPath"

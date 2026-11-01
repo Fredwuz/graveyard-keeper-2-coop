@@ -9,7 +9,7 @@
     playground loads and hosting starts by itself. In the second (joiner), open Co-op > Join a
     game > Join by address and press 127.0.0.1:8889 under the recent addresses.
 
-    The playground's games keep their saves in D:\GK2Coop-Saves\playground (GK2COOP_TEST_SAVE_FOLDER),
+    The playground's games keep their saves in testbed\GK2Coop-Saves\playground (GK2COOP_TEST_SAVE_FOLDER),
     never in your own save folder; the host copy's Continue opens the playground through
     [Testing] ContinueSlot. When both windows are closed, everything is put back: the playground slot and the joiner's
     copy go to artifacts\playground\sessions\<time>, the test copies' settings and the game's
@@ -26,8 +26,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$HostPath = 'D:\GK2Coop-FullHost',
-    [string]$ClientPath = 'D:\GK2Coop-FullClient',
+    [string]$HostPath = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost",
+    [string]$ClientPath = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient",
     [switch]$NoJoiner,
     [switch]$NoDeploy,
     [switch]$Cleanup,
@@ -41,7 +41,7 @@ $root = Split-Path -Parent $PSScriptRoot
 
 # Your own saves: only hashed. The playground's games use their own folder.
 $realSaveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
-$saveFolder = 'D:\GK2Coop-Saves\playground'
+$saveFolder = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Saves\playground"
 New-Item -ItemType Directory -Force -Path $saveFolder | Out-Null
 $slot = 'GK2Coop_Playground'
 $source = Join-Path $root 'artifacts\playground'

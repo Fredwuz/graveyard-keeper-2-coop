@@ -227,6 +227,12 @@ namespace GK2Coop
                     moved++;
                 }
                 if (moved > 0) log.LogInfo("Save bootstrap: moved " + moved + " file(s) of earlier world copies or test slots out of the save list (GK2Coop\\world-copies, GK2Coop\\test-slots).");
+                // Each copy is a whole world (late game ~13 MB) and every join makes one: only the
+                // newest few stay, for looking into a problem afterwards.
+                if (Directory.Exists(copies))
+                {
+                    foreach (FileInfo old in new DirectoryInfo(copies).GetFiles().OrderByDescending(f => f.LastWriteTimeUtc).Skip(20)) old.Delete();
+                }
             }
             catch (Exception ex)
             {

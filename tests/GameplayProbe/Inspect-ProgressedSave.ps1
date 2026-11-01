@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$SaveBackup = 'C:\FF\graveyard-keeper-2-coop\artifacts\save-backups\full-release-20260923-071217',
-    [string]$GamePath = 'D:\GK2Coop-FullClient',
-    [string]$OutputPath = 'C:\FF\graveyard-keeper-2-coop\artifacts\progressed-save-0.23.0'
+    [string]$SaveBackup = "$PSScriptRoot\..\..\artifacts\save-backups\test-world",
+    [string]$GamePath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient",
+    [string]$OutputPath = "$PSScriptRoot\..\..\artifacts\progressed-save-0.23.0"
 )
 
 # Loads an isolated copy of a real save through the game's Continue button. Only the

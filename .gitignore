@@ -4,8 +4,10 @@ references/
 artifacts/
 logs/
 test-saves/
+testbed/
 bin/
 obj/
 __pycache__/
 *.user
+dev.props
 *.pyc

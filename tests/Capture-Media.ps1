@@ -5,7 +5,7 @@
     each picture at 1920x1080.
 
 .DESCRIPTION
-    The host (D:\GK2Coop-FullHost) continues the day-18 test save; the others join from their main
+    The host (testbed\GK2Coop-FullHost) continues the day-18 test save; the others join from their main
     menus by address (127.0.0.1), each with its own test save folder. -Shots picks the motifs
     (default: all); pictures go to -OutputPath, named <number>-<motif>-<who>.png.
 
@@ -17,8 +17,8 @@
 param(
     [ValidateRange(2, 4)][int]$Players = 4,
     [string[]]$Shots = @(),
-    [string]$SaveBackup = 'C:\FF\graveyard-keeper-2-coop\artifacts\save-backups\full-release-20260923-071217',
-    [string]$OutputPath = ('D:\GK2Coop-Artifacts\media-' + (Get-Date -Format 'yyyyMMdd-HHmm'))
+    [string]$SaveBackup = "$PSScriptRoot\..\artifacts\save-backups\test-world",
+    [string]$OutputPath = ("$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Artifacts\media-" + (Get-Date -Format 'yyyyMMdd-HHmm'))
 )
 $ErrorActionPreference = 'Stop'
 if ($Shots) { $Shots = @($Shots | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
@@ -30,10 +30,10 @@ $log = Join-Path $OutputPath 'capture.txt'
 
 $cast = @(
     # Each plays in their own language (the quick messages and notices arrive in it).
-    [pscustomobject]@{ Name = 'Mortimer'; Path = 'D:\GK2Coop-FullHost'; Look = '0|0|0|0'; Lang = 'en'; Process = $null },
-    [pscustomobject]@{ Name = 'Agnes'; Path = 'D:\GK2Coop-FullClient'; Look = '3|2|0|1'; Lang = 'en'; Process = $null },
-    [pscustomobject]@{ Name = 'Silas'; Path = 'D:\GK2Coop-FullHost2'; Look = '2|1|0|2'; Lang = 'de'; Process = $null },
-    [pscustomobject]@{ Name = 'Edda'; Path = 'D:\GK2Coop-FullClient2'; Look = '4|2|0|0'; Lang = 'ja'; Process = $null }
+    [pscustomobject]@{ Name = 'Mortimer'; Path = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost"; Look = '0|0|0|0'; Lang = 'en'; Process = $null },
+    [pscustomobject]@{ Name = 'Agnes'; Path = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient"; Look = '3|2|0|1'; Lang = 'en'; Process = $null },
+    [pscustomobject]@{ Name = 'Silas'; Path = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost2"; Look = '2|1|0|2'; Lang = 'de'; Process = $null },
+    [pscustomobject]@{ Name = 'Edda'; Path = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient2"; Look = '4|2|0|0'; Lang = 'ja'; Process = $null }
 ) | Select-Object -First $Players
 $hostPlayer = $cast[0]
 $hostConfig = Join-Path $hostPlayer.Path 'BepInEx\config\com.fabio.gk2coop.cfg'
@@ -45,7 +45,7 @@ function Set-Cfg([string]$text, [string]$key, [string]$value) {
     if ($text -match "(?m)^$key\s*=") { return [regex]::Replace($text, "(?m)^$key\s*=.*$", "$key = $value") }
     return $text
 }
-function SaveFolderOf($p) { Join-Path 'D:\GK2Coop-Saves' (Split-Path -Leaf $p.Path) }
+function SaveFolderOf($p) { Join-Path "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Saves" (Split-Path -Leaf $p.Path) }
 function LogOf($p) { Join-Path $p.Path 'BepInEx\LogOutput.log' }
 function ReadShared([string]$path) {
     if (-not (Test-Path -LiteralPath $path)) { return '' }

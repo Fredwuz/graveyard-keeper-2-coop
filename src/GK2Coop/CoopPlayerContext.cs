@@ -134,7 +134,7 @@ namespace GK2Coop
             catch (Exception ex)
             {
                 failureCount++;
-                log.LogError("Action inside player context '" + label + "' failed: " + Unwrap(ex));
+                log.LogError("Action inside player context '" + label + "' failed: " + Plugin.Unwrap(ex));
                 return false;
             }
             finally
@@ -146,15 +146,6 @@ namespace GK2Coop
                 depth = 0;
                 activeLabel = null;
             }
-        }
-
-        private static Exception Unwrap(Exception exception)
-        {
-            while (exception is TargetInvocationException && exception.InnerException != null)
-            {
-                exception = exception.InnerException;
-            }
-            return exception;
         }
 
         /// <summary>

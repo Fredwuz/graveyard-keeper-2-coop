@@ -183,7 +183,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Garden sync: could not apply a planting from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Garden sync: could not apply a planting from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -322,15 +322,6 @@ namespace GK2Coop
         private static string Short(string id)
         {
             return string.IsNullOrEmpty(id) ? "?" : (id.Length > 8 ? id.Substring(0, 8) : id);
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

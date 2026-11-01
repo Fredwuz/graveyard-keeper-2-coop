@@ -14,11 +14,11 @@
 [CmdletBinding()]
 param(
     [ValidateSet('OldHost', 'OldClient')][string]$Old = 'OldHost',
-    [string]$HostPath = 'D:\GK2Coop-FullHost2',
-    [string]$ClientPath = 'D:\GK2Coop-FullClient2',
+    [string]$HostPath = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost2",
+    [string]$ClientPath = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient2",
     [string]$OldDll = '',
-    [string]$SaveBackup = 'C:\FF\graveyard-keeper-2-coop\artifacts\save-backups\full-release-20260923-071217',
-    [string]$OutputPath = ('D:\GK2Coop-Artifacts\mismatch-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    [string]$SaveBackup = "$PSScriptRoot\..\artifacts\save-backups\test-world",
+    [string]$OutputPath = ("$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Artifacts\mismatch-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GameplayProbe\TestSafety.ps1')
@@ -29,8 +29,8 @@ if (-not $OldDll) {
 }
 $probeDll = Join-Path $PSScriptRoot 'GameplayProbe\bin\Release\net472\GameplayProbe.dll'
 $realSaveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
-$hostSaves = Join-Path 'D:\GK2Coop-Saves' (Split-Path -Leaf $HostPath)
-$clientSaves = Join-Path 'D:\GK2Coop-Saves' (Split-Path -Leaf $ClientPath)
+$hostSaves = Join-Path "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Saves" (Split-Path -Leaf $HostPath)
+$clientSaves = Join-Path "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Saves" (Split-Path -Leaf $ClientPath)
 $slot = 'GK2Coop_Test_' + (Get-Date -Format 'yyyyMMddHHmmss') + '_mismatch'
 New-Item -ItemType Directory -Force -Path $OutputPath, $hostSaves, $clientSaves | Out-Null
 $copies = @{ Host = $HostPath; Client = $ClientPath }

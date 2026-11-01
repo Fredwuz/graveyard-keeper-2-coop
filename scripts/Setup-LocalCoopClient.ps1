@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$HostPath = 'C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2',
-    [string]$ClientPath = 'D:\GK2Coop-FullClient'
+    [string]$HostPath = (dotnet msbuild "$PSScriptRoot\..\src\GK2Coop\GK2Coop.csproj" -getProperty:GamePath),
+    [string]$ClientPath = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient"
 )
 
 # Clones the installed demo so two instances can run side by side on one machine.
@@ -15,6 +15,8 @@ param(
 # a harmless SteamAPI_Init failure. It is roughly 1.4 GB.
 
 $ErrorActionPreference = 'Stop'
+# A relative path (testbed\GK2Coop-FullHost) counts from the current folder.
+$ClientPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ClientPath)
 
 $gameExeName = if (Test-Path -LiteralPath (Join-Path $HostPath 'GraveyardKeeper2.exe')) { 'GraveyardKeeper2.exe' } else { 'GraveyardKeeper2Demo.exe' }
 if (-not (Test-Path -LiteralPath (Join-Path $HostPath $gameExeName))) {
@@ -39,6 +41,10 @@ if ($LASTEXITCODE -ge 8) {
 if (-not (Test-Path -LiteralPath (Join-Path $ClientPath $gameExeName))) {
     throw 'Clone did not produce a runnable install.'
 }
+# The copy starts as itself, not relaunched through Steam (which would start the real install).
+Set-Content -LiteralPath (Join-Path $ClientPath 'steam_appid.txt') -Value '4358690' -NoNewline
 
 Write-Host "Local co-op client ready at $ClientPath"
 Write-Host 'Run scripts\Run-LocalCoopTest.ps1 to drive a two-instance session.'
+# robocopy's 1 means "files copied"; callers must not read it as a failure.
+exit 0

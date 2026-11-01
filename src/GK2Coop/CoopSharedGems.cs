@@ -109,7 +109,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Action gems: " + Inner(ex).Message);
+                log.LogWarning("Action gems: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -227,7 +227,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Action gems: could not apply a message from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Action gems: could not apply a message from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -306,15 +306,6 @@ namespace GK2Coop
                     setRaw.Invoke(res, new object[] { Gems[i], values[i] });
                 }
             }
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

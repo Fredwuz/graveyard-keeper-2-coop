@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -95,7 +94,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Vendor sync: could not share a finished deal: " + Inner(ex).Message);
+                log.LogWarning("Vendor sync: could not share a finished deal: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -166,14 +165,14 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Vendor sync: " + Inner(ex).Message);
+                log.LogWarning("Vendor sync: " + Plugin.Unwrap(ex).Message);
                 nextCheck = Time.unscaledTime + 30f;
             }
         }
 
         private static void Send(NetworkManager netcode, ulong? except, string id, byte[] raw)
         {
-            byte[] compressed = Compress(raw);
+            byte[] compressed = Gzip.Compress(raw);
             using (var writer = new FastBufferWriter(96 + compressed.Length, Allocator.Temp))
             {
                 writer.WriteValueSafe(new FixedString128Bytes(id));
@@ -215,7 +214,7 @@ namespace GK2Coop
                 }
                 byte[] compressed = new byte[length];
                 reader.ReadBytesSafe(ref compressed, length);
-                byte[] raw = Decompress(compressed);
+                byte[] raw = Gzip.Decompress(compressed);
                 string id = idText.ToString();
                 if (netcode.IsHost)
                 {
@@ -231,7 +230,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Vendor sync: could not apply a vendor from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Vendor sync: could not apply a vendor from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -246,7 +245,7 @@ namespace GK2Coop
             applying = true;
             try
             {
-                SerializerMethod("DeserializeInto").MakeGenericMethod(vendor.GetType()).Invoke(null, new[] { vendor, raw });
+                CoopGameSerializer.LazySerializerMethod("DeserializeInto").MakeGenericMethod(vendor.GetType()).Invoke(null, new[] { vendor, raw });
                 applied++;
             }
             finally
@@ -298,46 +297,10 @@ namespace GK2Coop
             Type type = value.GetType();
             if (!serializeFor.TryGetValue(type, out MethodInfo serialize))
             {
-                serialize = SerializerMethod("Serialize").MakeGenericMethod(type);
+                serialize = CoopGameSerializer.LazySerializerMethod("Serialize").MakeGenericMethod(type);
                 serializeFor[type] = serialize;
             }
             return (byte[])serialize.Invoke(null, new[] { value });
-        }
-
-        private static MethodInfo SerializerMethod(string name)
-        {
-            foreach (MethodInfo method in Plugin.FindGameType("LazyBearTechnology.LazySerializer").GetMethods(BindingFlags.Static | BindingFlags.Public))
-            {
-                ParameterInfo[] parameters = method.GetParameters();
-                if (method.Name == name && method.IsGenericMethodDefinition &&
-                    ((name == "Serialize" && parameters.Length == 1) || (name == "DeserializeInto" && parameters.Length == 2 && parameters[1].ParameterType == typeof(byte[]))))
-                {
-                    return method;
-                }
-            }
-            throw new MissingMethodException("LazySerializer." + name);
-        }
-
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                input.CopyTo(output);
-                return output.ToArray();
-            }
         }
 
         private static bool Same(byte[] a, byte[] b)
@@ -345,15 +308,6 @@ namespace GK2Coop
             if (a.Length != b.Length) return false;
             for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
             return true;
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

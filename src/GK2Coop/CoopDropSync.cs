@@ -891,13 +891,8 @@ namespace GK2Coop
             catch (Exception ex)
             {
                 unresolved++;
-                log.LogError("Host awarded " + itemId + " x" + count + " that did not fit in the bag, and it could not be put back on the ground: " + Inner(ex).Message);
+                log.LogError("Host awarded " + itemId + " x" + count + " that did not fit in the bag, and it could not be put back on the ground: " + Plugin.Unwrap(ex).Message);
             }
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            return ex is TargetInvocationException && ex.InnerException != null ? ex.InnerException : ex;
         }
 
         private static int GetAcceptedCount(object inventory, object sourceItem)

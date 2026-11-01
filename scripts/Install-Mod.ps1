@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$GamePath = 'C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2',
+    [string]$GamePath = (dotnet msbuild "$PSScriptRoot\..\src\GK2Coop\GK2Coop.csproj" -getProperty:GamePath),
     [string]$Configuration = 'Debug'
 )
 
