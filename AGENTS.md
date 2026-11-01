@@ -98,6 +98,9 @@ game developers': never commit it or copy it into the repository, docs or commit
   README ("Shared data", "Limits of this version", "Keys").
 
 **Commits**
+- Commit to `dev`. `main` holds released versions only: it gets one pull request from `dev` per
+  release, after the full regression. A branch of its own only for an experiment that may be
+  thrown away.
 - Agents may commit without asking, and may group the changes into commits as they see fit.
 - Do not push unless asked.
 - Commit messages: `<version>: <what changed for players>` for a release, otherwise
