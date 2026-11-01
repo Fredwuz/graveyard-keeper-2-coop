@@ -3,6 +3,10 @@
 > **NOTE:** This repository is a fork. The original author of this mod is
 > [fofofabio](https://github.com/fofofabio). The original repository was deleted, so this fork
 > continues the project. The mod keeps its MIT license (see [LICENSE](LICENSE)).
+>
+> **AI DISCLAIMER:** This fork is continued with heavy use of AI coding tools ("vibe coding").
+> Much of its code and documentation is written by AI. Expect bugs, please
+> [report them](../../issues), and make a backup of your saves.
 
 ![Four players in one world: the graveyard, story scenes, sermons, chat, fights and the Co-op menu](media/highlights.gif)
 
