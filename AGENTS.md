@@ -20,7 +20,7 @@ Start with [docs/README.md](docs/README.md): the architecture, then one page per
 | `src/GK2Coop/CoopText*.cs` | Translations (`L.T`, `L.F`); `CoopText.<lang>.cs` are generated |
 | `src/GK2Coop/GameUi.cs` | The game's own look for the mod's screens |
 | `tests/` | Offline checks (`*.py`) and the live multiplayer regression (`*.ps1`, `GameplayProbe/`) |
-| `scripts/` | Build, package, Workshop folder, test-copy and VM setup |
+| `scripts/` | Build, package, Workshop folder, test-copy and VM setup, decompiling the game |
 | `package/` | Default settings file and the player guides shipped in the zip |
 | `docs/` | Feature documentation |
 
@@ -31,6 +31,7 @@ dotnet build src\GK2Coop\GK2Coop.csproj -c Release   # needs the game (with BepI
 python tests/Check-Messages.py                        # unique message names; no game needed
 python tests/Check-Translations.py                    # every text in every language; no game needed
 .\tests\Run-Regression.ps1 -Changed                   # live tests on the test copies in testbed\
+.\scripts\Decompile-Game.ps1                          # the game's code into artifacts\decomp\<game version>
 ```
 
 The build references the game's DLLs. The game folder comes from `Directory.Build.props`
@@ -40,6 +41,11 @@ game path in a project or script. Without the game installed the mod cannot buil
 your report instead of claiming the change compiles. Live tests need the test copies in the
 git-ignored `testbed\` folder and the day-18 test save ([docs/testing.md](docs/testing.md)).
 Never commit anything from `testbed\` or `artifacts\`.
+
+**Read the game before patching it.** Look up the method you hook, its callers and the fields
+you read in `artifacts\decomp\<game version>\` (one `.cs` per type, `grep` it). If the folder for
+the installed version is missing, run `scripts\Decompile-Game.ps1`. The decompiled code is the
+game developers': never commit it or copy it into the repository, docs or commits.
 
 ## Rules
 

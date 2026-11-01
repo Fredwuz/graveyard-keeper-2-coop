@@ -180,6 +180,12 @@ Do these steps:
    and the scripts then use that folder.
 2. Run `dotnet build src\GK2Coop\GK2Coop.csproj -c Release`.
 3. To make the zip file for a release, run `scripts\Build-Package.ps1`.
+4. To read the code of the game, run `scripts\Decompile-Game.ps1`. The script installs ILSpy
+   (`ilspycmd`) into the folder `.tools` and writes the code into `artifacts\decomp\<game version>`.
+   Run the script again after each update of the game.
+
+> **CAUTION:** The decompiled code belongs to the developers of the game. Do not commit it and do
+> not share it. Git ignores the folders `artifacts` and `.tools`.
 
 The folder `docs` explains how each feature works. The folder `tests` contains the multiplayer
 tests. A test plugin (`tests\GameplayProbe`) controls two to four copies of the game on one PC.

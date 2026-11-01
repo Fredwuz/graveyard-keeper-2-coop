@@ -19,6 +19,17 @@ The project targets .NET Framework 4.7.2 and references the game's own DLLs from
 `artifacts\bepinex-5.4.23.5` when that is there, else from the game folder.
 `scripts\Install-Mod.ps1` builds and installs into a game folder.
 
+## Reading the game's code
+
+Most patches start from reading the game method they change. `scripts\Decompile-Game.ps1`
+installs ILSpy's command line (`ilspycmd`) into `.tools` once and decompiles
+`Assembly-CSharp.dll` into `artifacts\decomp\<game version>` (the version Unity stores in
+`globalgamemanagers`, e.g. `1.011`), one `.cs` file per type. It skips a version already there;
+`-Force` decompiles again. Run it after each game update: method and field names change.
+
+Git ignores both folders. The decompiled code is the game developers' code: never commit it,
+never paste it into issues, docs or commits.
+
 ## Version numbers
 
 | Number | Where | Used for |
