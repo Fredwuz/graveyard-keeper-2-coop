@@ -12,7 +12,7 @@
     Before anything starts: the current build is copied to every copy (-NoDeploy skips that), the
     probe is built once, the player's own saves are hashed and the game's registry preferences
     kept; afterwards the preferences are put back and the saves checked. Results go to
-    D:\GK2Coop-Artifacts\regress-<version>-<time>\summary.txt.
+    testbed\GK2Coop-Artifacts\regress-<version>-<time>\summary.txt.
 
 .EXAMPLE
     .\tests\Run-Regression.ps1 -Changed
@@ -30,7 +30,7 @@ param(
     [switch]$NoDeploy,
     # Which pairs of copies to use, e.g. 2 for the second only (leaving the first free for a VM session).
     [int[]]$UsePairs = @(),
-    [string]$OutputRoot = 'D:\GK2Coop-Artifacts'
+    [string]$OutputRoot = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Artifacts"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,8 +42,8 @@ $harness = Join-Path $PSScriptRoot 'GameplayProbe\Verify-ProgressedCoop.ps1'
 $manifest = Join-Path $root 'artifacts\regression-green.json'
 $saveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
 $pairs = @(
-    [pscustomobject]@{ Host = 'D:\GK2Coop-FullHost'; Client = 'D:\GK2Coop-FullClient' },
-    [pscustomobject]@{ Host = 'D:\GK2Coop-FullHost2'; Client = 'D:\GK2Coop-FullClient2' }
+    [pscustomobject]@{ Host = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost"; Client = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient" },
+    [pscustomobject]@{ Host = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost2"; Client = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient2" }
 )
 if ($UsePairs.Count) { $pairs = @($UsePairs | ForEach-Object { $pairs[$_ - 1] }) } else { $pairs = @($pairs | Select-Object -First $Lanes) }
 $pairs = @($pairs | Where-Object { Test-Path -LiteralPath (Join-Path $_.Host 'GraveyardKeeper2.exe') })
@@ -103,10 +103,10 @@ $runs = @(
     Run 'conveyor' @{ ConveyorExperiment = $true; PorterExperiment = $true } @('CoopConveyorSync') 3 -Full
     Run 'rejoin' @{ ProfileRejoin = $true } @('CoopPlayerProfiles', 'CoopAppearanceSync', 'CoopStableIds') 3 -Full
     Run 'mix' @{ MixExperiment = $true } @() 9
-    Run 'mix3' @{ MixExperiment = $true; ThirdPath = 'D:\GK2Coop-FullHost2' } @() 11 -Solo
+    Run 'mix3' @{ MixExperiment = $true; ThirdPath = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost2" } @() 11 -Solo
     # The mix phases, then ten minutes of both players at random, every berry counted.
     Run 'chaos' @{ MixExperiment = $true; ChaosMinutes = 10 } @() 21 -Solo
-    Run 'chaos3' @{ MixExperiment = $true; ChaosMinutes = 10; ThirdPath = 'D:\GK2Coop-FullHost2' } @() 24 -Solo
+    Run 'chaos3' @{ MixExperiment = $true; ChaosMinutes = 10; ThirdPath = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost2" } @() 24 -Solo
     Run 'rehost' @{ RehostExperiment = $true } @('CoopLifecycle', 'CoopWatchdog', 'CoopHostLeft', 'CoopSaveBootstrap') 6
 )
 
@@ -176,20 +176,28 @@ if ($Only) {
     }
 }
 if ($selected.Count -eq 0) { Write-Host "No run selected ($why)."; return }
+if ($pairs.Count -eq 0) { throw 'No test copies: the runs need testbed\GK2Coop-FullHost and testbed\GK2Coop-FullClient (see docs\testing.md).' }
+$saveBackup = Join-Path $root 'artifacts\save-backups\test-world'
+if (-not (Test-Path -LiteralPath (Join-Path $saveBackup 'Steam_1.dat'))) { throw "The test save is missing: $saveBackup\Steam_1.dat (see docs\testing.md)." }
+$built = Join-Path $root 'src\GK2Coop\bin\Release\net472\GK2Coop.dll'
+if (-not $NoDeploy) {
+    # The runs test the source as it is now, which -Changed then records as green.
+    dotnet build (Join-Path $root 'src\GK2Coop\GK2Coop.csproj') -c Release -v q --nologo "-p:GamePath=$($pairs[0].Host)"
+    if ($LASTEXITCODE -ne 0) { throw 'Plugin build failed.' }
+}
 $selected = @($selected | Sort-Object Minutes -Descending)
 if (@($selected | Where-Object Solo).Count) {
     $pairs = @($pairs | Select-Object -First 1)
     foreach ($third in @($selected | Where-Object Solo | ForEach-Object { $_.Params.ThirdPath } | Where-Object { $_ } | Select-Object -Unique)) {
         Assert-TestInstall $third
-        if (-not $NoDeploy) { Copy-Item -LiteralPath (Join-Path $root 'src\GK2Coop\bin\Release\net472\GK2Coop.dll') -Destination (Join-Path $third 'BepInEx\plugins\GK2Coop\GK2Coop.dll') -Force }
+        if (-not $NoDeploy) { Copy-Item -LiteralPath $built -Destination (Join-Path $third 'BepInEx\plugins\GK2Coop\GK2Coop.dll') -Force }
     }
 }
 
 # ---------------------------------------------------------------- set up
 foreach ($pair in $pairs) { Assert-TestInstall $pair.Host; Assert-TestInstall $pair.Client }
 if ((Get-TestGameProcesses @($pairs | ForEach-Object { $_.Host; $_.Client })).Count -gt 0) { throw 'A test copy of the game is running.' }
-$built = Join-Path $root 'src\GK2Coop\bin\Release\net472\GK2Coop.dll'
-$version = (Get-Item -LiteralPath $built).VersionInfo.ProductVersion
+$version = (Get-Item -LiteralPath $(if ($NoDeploy) { Join-Path $pairs[0].Host 'BepInEx\plugins\GK2Coop\GK2Coop.dll' } else { $built })).VersionInfo.ProductVersion
 if (-not $NoDeploy) { foreach ($pair in $pairs) { foreach ($copy in $pair.Host, $pair.Client) { Copy-Item -LiteralPath $built -Destination (Join-Path $copy 'BepInEx\plugins\GK2Coop\GK2Coop.dll') -Force } } }
 dotnet build (Join-Path $PSScriptRoot 'GameplayProbe\GameplayProbe.csproj') -c Release -v q --nologo "-p:GamePath=$($pairs[0].Host)" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Probe build failed.' }

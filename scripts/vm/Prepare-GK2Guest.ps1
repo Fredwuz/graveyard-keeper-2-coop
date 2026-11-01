@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$VMName = 'GK2Coop-Test',
-    [string]$GuestKit = 'C:\FF\graveyard-keeper-2-coop\artifacts\GK2Coop-Guest-Kit.zip',
+    [string]$GuestKit = "$PSScriptRoot\..\..\artifacts\GK2Coop-Guest-Kit.zip",
     [string]$GuestDestination = 'C:\Users\Public\Desktop\GK2Coop-Guest-Kit.zip',
     [int]$Port = 8889,
     [string]$LogPath = 'D:\ISO\GK2Coop-Guest-Prep.log'

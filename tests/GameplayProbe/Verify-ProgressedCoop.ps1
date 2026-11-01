@@ -1,9 +1,9 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$SaveBackup = 'C:\FF\graveyard-keeper-2-coop\artifacts\save-backups\full-release-20260923-071217',
-    [string]$HostPath = 'D:\GK2Coop-FullHost',
-    [string]$ClientPath = 'D:\GK2Coop-FullClient',
-    [string]$OutputPath = 'C:\FF\graveyard-keeper-2-coop\artifacts\progressed-coop-0.23.0',
+    [string]$SaveBackup = "$PSScriptRoot\..\..\artifacts\save-backups\test-world",
+    [string]$HostPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullHost",
+    [string]$ClientPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient",
+    [string]$OutputPath = "$PSScriptRoot\..\..\artifacts\progressed-coop-0.23.0",
     [switch]$FreshClient,
     [switch]$MenuConnectClient,
     [switch]$MenuBootstrapClient,
@@ -164,7 +164,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 # The player's own saves: only hashed, before and after (the games use $saveFolder below).
 $realSaveFolder = (Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2')
-$saveFolder = if ($SaveFolder) { $SaveFolder } else { Join-Path 'D:\GK2Coop-Saves' (Split-Path -Leaf $HostPath) }
+$saveFolder = if ($SaveFolder) { $SaveFolder } else { Join-Path "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Saves" (Split-Path -Leaf $HostPath) }
 New-Item -ItemType Directory -Force -Path $saveFolder | Out-Null
 # A random tail: two runs in parallel may start in the same second.
 $slot = 'GK2Coop_Test_' + (Get-Date -Format 'yyyyMMddHHmmss') + '_' + ([guid]::NewGuid().ToString('N').Substring(0, 4))
@@ -303,7 +303,7 @@ if ((Get-TestGameProcesses $copiesInUse).Count -gt 0) { throw 'A test copy of th
 # Only old ones: a run in parallel on the other pair of copies has a fresh one.
 $leftovers = @(Get-ChildItem -LiteralPath $saveFolder -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'GK2Coop_Test_*' -and $_.LastWriteTime -lt (Get-Date).AddHours(-2) })
 if ($leftovers.Count -gt 0) {
-    $leftoverFolder = 'D:\GK2Coop-Artifacts\leftover-slots'
+    $leftoverFolder = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Artifacts\leftover-slots"
     New-Item -ItemType Directory -Force -Path $leftoverFolder | Out-Null
     foreach ($file in $leftovers) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $leftoverFolder $file.Name) -Force }
     Write-Host "Moved $($leftovers.Count) file(s) of an interrupted run's test slot to $leftoverFolder"
@@ -349,7 +349,9 @@ try {
         $configPath = ConfigPath $peer
         $config = Get-Content -LiteralPath $configPath -Raw
         $autoStart = if ($FreshClient -and $peer.Name -eq 'Client') { 'true' } else { 'false' }
-        $relaxGate = if ($FreshClient -and $peer.Name -eq 'Client') { 'true' } else { 'false' }
+        # The host too: a test world can load with a window that holds the player's control (a
+        # day-2 world opens the tech-tree tutorial), and the host then never started hosting.
+        $relaxGate = if (($FreshClient -and $peer.Name -eq 'Client') -or $peer.Name -eq 'Host') { 'true' } else { 'false' }
         foreach ($pair in @(@('StartupMode',$peer.Mode),@('Address',$peer.Address),@('AutoStartNewGame',$autoStart),@('RelaxStartupGate',$relaxGate),@('PlayerName',$peer.Name))) {
             $config = [regex]::Replace($config, "(?m)^$($pair[0])\s*=.*$", "$($pair[0]) = $($pair[1])")
         }
@@ -744,8 +746,15 @@ try {
         $clientProgress = Probe Client 'progress'
         [IO.File]::WriteAllText((Join-Path $OutputPath 'host-progress.txt'), $hostProgress)
         [IO.File]::WriteAllText((Join-Path $OutputPath 'client-progress.txt'), $clientProgress)
-        Check ($hostProgress -match 'WORLD scenes=6 objects=10\d\d' -and $clientProgress -match 'WORLD scenes=6 objects=10\d\d' -and
-            $hostProgress -match 'QUESTS Completed=115' -and $clientProgress -match 'QUESTS Completed=115') 'Network-transferred day-18 save loads through Continue and matches host progress'
+        $sameWorld = if ($SaveBackup -like '*full-release-20260923-071217*') {
+            $hostProgress -match 'WORLD scenes=6 objects=10\d\d' -and $clientProgress -match 'WORLD scenes=6 objects=10\d\d' -and
+            $hostProgress -match 'QUESTS Completed=115' -and $clientProgress -match 'QUESTS Completed=115'
+        } else {
+            # Another world: the joiner's copy has the host's scenes and quests.
+            $shape = { param($p) ([regex]::Matches($p, 'WORLD scenes=\d+|QUESTS Completed=\d+') | ForEach-Object Value) -join ' ' }
+            (& $shape $hostProgress) -match 'WORLD' -and (& $shape $hostProgress) -eq (& $shape $clientProgress)
+        }
+        Check $sameWorld 'Network-transferred save loads through Continue and matches host progress'
         $opened = Select-String -LiteralPath $clientLog -Pattern "OnContinueButtonClicked saveSlotData:\[([^\]]*)\]" | Select-Object -Last 1
         if ($opened) { Check ($opened.Line -match 'GK2Coop_[0-9a-f]{16}') "The joiner's Continue opened the copy of the host's world, not another save ($($opened.Matches[0].Groups[1].Value))" }
         $hostBodies = Probe Host 'bodies'
@@ -1347,8 +1356,9 @@ try {
             $hostProfile = Probe Host 'profile'
             $clientProfile = Probe Client 'profile'
             [IO.File]::WriteAllText((Join-Path $OutputPath 'profile-first-join.txt'), "$hostProfile`n$clientProfile")
-            $hostMoney = if ($hostProfile -match 'money=([0-9.]+)') { $Matches[1] } else { '?' }
-            Check ($clientProfile -match 'outcome=new player' -and $clientProfile -notmatch "money=$([regex]::Escape($hostMoney)) ") "A first-time joiner starts with their own inventory, not the host's ($clientProfile vs host $hostProfile)"
+            # Money and inventory together: an early host can still have the starting money.
+            $state = { param($p) [regex]::Match($p, 'money=\S+ red=\S+ stacks=\S+').Value }
+            Check ($clientProfile -match 'outcome=new player' -and (& $state $clientProfile) -and (& $state $clientProfile) -ne (& $state $hostProfile)) "A first-time joiner starts with their own inventory, not the host's ($clientProfile vs host $hostProfile)"
             $hostTalents = (((Probe Host 'talents') -split "`n") | Where-Object { $_ -like 'TALENTS *' }) -join ''
             $clientTalents = (((Probe Client 'talents') -split "`n") | Where-Object { $_ -like 'TALENTS *' }) -join ''
             # The host's levels, so the stations are usable; progress is separate from here on.

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Co-op across a real network: the host on this PC (D:\GK2Coop-FullHost, hidden, its own save
+    Co-op across a real network: the host on this PC (testbed\GK2Coop-FullHost, hidden, its own save
     folder), the joiner in the test VM (C:\GK2Coop\Game, visible there), joining from the menu as a
     friend would, over the Hyper-V network. Driven through the guest agent (tests\vm\GuestAgent.ps1).
 
@@ -11,9 +11,9 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$HostPath = 'D:\GK2Coop-FullHost',
-    [string]$SaveBackup = 'C:\FF\graveyard-keeper-2-coop\artifacts\save-backups\full-release-20260923-071217',
-    [string]$OutputPath = ('D:\GK2Coop-Artifacts\vm-coop-' + (Get-Date -Format 'yyyyMMdd-HHmm')),
+    [string]$HostPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullHost",
+    [string]$SaveBackup = "$PSScriptRoot\..\..\artifacts\save-backups\test-world",
+    [string]$OutputPath = ("$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Artifacts\vm-coop-" + (Get-Date -Format 'yyyyMMdd-HHmm')),
     [switch]$NoFight,
     # A long session: this many minutes of chest edits both ways and walking, checked every half minute.
     [int]$SoakMinutes = 0,
@@ -24,10 +24,10 @@ param(
     [switch]$HostQuits,
     # Three players: after the VM, a second test copy on this PC joins by address (IP only).
     [switch]$ThirdPlayer,
-    [string]$ThirdPath = 'D:\GK2Coop-FullClient',
+    [string]$ThirdPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient",
     # Four players: with -ThirdPlayer, one more copy on this PC.
     [switch]$FourthPlayer,
-    [string]$FourthPath = 'D:\GK2Coop-FullClient2',
+    [string]$FourthPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient2",
     # IP: the VM joins the host's address. Steam: the host hosts on Steam with this PC's account, the VM
     # joins its lobby with its own account (friends), through Steam's relay: no address, no port.
     [ValidateSet('IP', 'Steam')][string]$Transport = 'IP'
@@ -38,7 +38,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $probeDll = Join-Path (Split-Path $PSScriptRoot) 'GameplayProbe\bin\Release\net472\GameplayProbe.dll'
 $realSaveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
-$saveFolder = Join-Path 'D:\GK2Coop-Saves' (Split-Path -Leaf $HostPath)
+$saveFolder = Join-Path "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Saves" (Split-Path -Leaf $HostPath)
 $slot = 'GK2Coop_Test_' + (Get-Date -Format 'yyyyMMddHHmmss') + '_vm'
 $hostConfig = Join-Path $HostPath 'BepInEx\config\com.fabio.gk2coop.cfg'
 $hostLog = Join-Path $HostPath 'BepInEx\LogOutput.log'
@@ -111,8 +111,8 @@ Copy-Item -LiteralPath $hostConfig -Destination (Join-Path $OutputPath 'Host-con
 
 # Players 3 and 4: test copies on this PC joining by address.
 $extras = @()
-if ($ThirdPlayer) { $extras += [pscustomobject]@{ Name = 'Third'; Path = $ThirdPath; Saves = 'D:\GK2Coop-Saves\FullClient'; Process = $null } }
-if ($FourthPlayer) { $extras += [pscustomobject]@{ Name = 'Fourth'; Path = $FourthPath; Saves = 'D:\GK2Coop-Saves\FullClient2'; Process = $null } }
+if ($ThirdPlayer) { $extras += [pscustomobject]@{ Name = 'Third'; Path = $ThirdPath; Saves = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Saves\FullClient"; Process = $null } }
+if ($FourthPlayer) { $extras += [pscustomobject]@{ Name = 'Fourth'; Path = $FourthPath; Saves = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Saves\FullClient2"; Process = $null } }
 foreach ($x in $extras) {
     if ($Transport -ne 'IP') { throw 'Players 3 and 4 join by address: use -Transport IP.' }
     Assert-TestInstall $x.Path

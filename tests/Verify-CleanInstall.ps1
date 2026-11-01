@@ -1,15 +1,15 @@
 ﻿<#
 .SYNOPSIS
     Gate G7 on this PC: the released zip into a game without any mod, then the uninstall the
-    install guide describes. Works on D:\GK2Coop-FullClean, a fresh copy of a test copy without
+    install guide describes. Works on testbed\GK2Coop-FullClean, a fresh copy of a test copy without
     the loader and the mod (never the Steam install).
 
 .DESCRIPTION
-    1. D:\GK2Coop-FullClean from the source copy, without BepInEx and the loader files (an older
+    1. testbed\GK2Coop-FullClean from the source copy, without BepInEx and the loader files (an older
        FullClean is moved to the output folder, not deleted).
     2. The zip extracted into it; every file of the zip where the zip puts it.
     3. The game starts: BepInEx loads the plugin (its version), the co-op menu is on the main menu,
-       no error from the mod. Saves go to D:\GK2Coop-Saves (the mod's test save folder).
+       no error from the mod. Saves go to testbed\GK2Coop-Saves (the mod's test save folder).
     4. Uninstall step 1 from the guide (BepInEx\plugins\GK2Coop): the game starts, the loader runs,
        the mod does not.
     5. Uninstall step 2 (BepInEx, winhttp.dll, doorstop_config.ini, .doorstop_version,
@@ -21,10 +21,10 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Zip = 'C:\FF\graveyard-keeper-2-coop\artifacts\GK2Coop-0.1.0-dev.zip',
-    [string]$Source = 'D:\GK2Coop-FullHost2',
-    [string]$Clean = 'D:\GK2Coop-FullClean',
-    [string]$OutputPath = ('D:\GK2Coop-Artifacts\clean-install-' + (Get-Date -Format 'yyyyMMdd-HHmm'))
+    [string]$Zip = "$PSScriptRoot\..\artifacts\GK2Coop-0.1.0-dev.zip",
+    [string]$Source = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullHost2",
+    [string]$Clean = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClean",
+    [string]$OutputPath = ("$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Artifacts\clean-install-" + (Get-Date -Format 'yyyyMMdd-HHmm'))
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GameplayProbe\TestSafety.ps1')
@@ -71,14 +71,14 @@ function RunGame([scriptblock]$until, [int]$seconds, [string]$what) {
 }
 
 Assert-TestInstall $Source
-if ([IO.Path]::GetFullPath($Clean).TrimEnd('\') -notlike 'D:\GK2Coop-Full*') { throw "Not a test copy path: $Clean" }
+if ([IO.Path]::GetFullPath($Clean).TrimEnd('\') -notlike "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Full*") { throw "Not a test copy path: $Clean" }
 if ((Get-TestGameProcesses @($Source, $Clean)).Count -gt 0) { throw 'The source or the clean copy is running.' }
 if (-not (Test-Path -LiteralPath $Zip)) { throw "No zip at $Zip" }
 
 $saveHashes = @{}
 foreach ($file in Get-ChildItem -LiteralPath $realSaveFolder -File | Where-Object { $_.Name -notlike 'GK2Coop_*' -and $_.Extension -in '.dat', '.info' }) { $saveHashes[$file.Name] = (Get-FileHash -LiteralPath $file.FullName).Hash }
 $prefs = Save-GamePrefs
-$env:GK2COOP_TEST_SAVE_FOLDER = Join-Path 'D:\GK2Coop-Saves' 'FullClean'
+$env:GK2COOP_TEST_SAVE_FOLDER = Join-Path "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-Saves" 'FullClean'
 New-Item -ItemType Directory -Force -Path $env:GK2COOP_TEST_SAVE_FOLDER | Out-Null
 try {
     # ---------------------------------------------------------------- a game without any mod

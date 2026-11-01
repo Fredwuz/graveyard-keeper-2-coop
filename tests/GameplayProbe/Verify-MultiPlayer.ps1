@@ -1,11 +1,11 @@
 [CmdletBinding()]
 param(
     [string]$HostPath = 'D:\SteamLibrary\steamapps\common\Graveyard Keeper 2 Demo',
-    [string]$ClientPath = 'D:\GK2Coop-LocalClient',
-    [string]$Client2Path = 'D:\GK2Coop-LocalClient2',
+    [string]$ClientPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-LocalClient",
+    [string]$Client2Path = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-LocalClient2",
     # A fourth peer when the clone exists. Nothing in the design assumes two clients, but that
     # is an argument rather than evidence, so the suite uses a third client when one is there.
-    [string]$Client3Path = 'D:\GK2Coop-LocalClient3',
+    [string]$Client3Path = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-LocalClient3",
     [Parameter(Mandatory)][string]$OutputPath
 )
 

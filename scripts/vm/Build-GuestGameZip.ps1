@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$SourcePath = 'D:\GK2Coop-FullClient',
+    [string]$SourcePath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient",
     [string]$OutputPath = 'D:\ISO\GK2Coop-GuestGame.zip',
     [string]$HostAddress = '172.22.112.1',
     [string]$PlayerName = 'VM Guest'

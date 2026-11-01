@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$ClientPath = 'D:\GK2Coop-FullClient',
+    [string]$ClientPath = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-FullClient",
     [ValidateSet('Library', 'Override')][string]$Mode = 'Library',
-    [string]$OutputPath = ('D:\GK2Coop-Artifacts\workshop-update-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    [string]$OutputPath = ("$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Artifacts\workshop-update-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 )
 
 # Gate for CoopWorkshopUpdater. A build with a higher version stands in for a newer Workshop
@@ -25,8 +25,8 @@ $project = Join-Path $projectRoot 'src\GK2Coop\GK2Coop.csproj'
 $release = Join-Path $projectRoot 'src\GK2Coop\bin\Release\net472\GK2Coop.dll'
 $updaterSource = Join-Path $projectRoot 'src\GK2Coop\CoopWorkshopUpdater.cs'
 $realSaveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
-$testSaves = Join-Path 'D:\GK2Coop-Saves' 'WorkshopUpdate'
-$library = 'D:\GK2Coop-WorkshopLibrary'
+$testSaves = Join-Path "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Saves" 'WorkshopUpdate'
+$library = "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-WorkshopLibrary"
 $report = [Collections.Generic.List[string]]::new()
 
 function Check([bool]$Passed, [string]$Label) {

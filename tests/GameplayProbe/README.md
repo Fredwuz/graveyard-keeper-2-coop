@@ -47,7 +47,7 @@ scaling its gates from the peer list rather than assuming a count. It checks tha
 movement, drops, quest transitions, world-object deaths and container changes reach *every other*
 peer — not just the host, which is what two players cannot distinguish.
 
-Clones live at `D:\GK2Coop-LocalClient`, `-LocalClient2` and `-LocalClient3`; create more with
+Clones live at `testbed\GK2Coop-LocalClient`, `-LocalClient2` and `-LocalClient3`; create more with
 `scripts\Setup-LocalCoopClient.ps1 -ClientPath <path>`. Four players pass all nine gates.
 
 Read the *body* position, not `playerData.position`, when checking whether a peer moved: only
