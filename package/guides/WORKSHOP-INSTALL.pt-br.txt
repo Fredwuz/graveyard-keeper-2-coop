@@ -71,5 +71,5 @@ nenhum outro mod o usa), apague também a pasta BepInEx, winhttp.dll,
 doorstop_config.ini, .doorstop_version e changelog.txt.
 Os guias INSTALL-GK2COOP.txt e GK2Coop-Guides também podem ser apagados.
 
-Configurações: BepInEx\config\com.fabio.gk2coop.cfg
+Configurações: BepInEx\config\de.fredwuz.gk2coop.cfg
 Esta é uma versão em desenvolvimento. Faça backup dos saves que importam para você.

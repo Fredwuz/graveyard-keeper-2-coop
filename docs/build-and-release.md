@@ -35,7 +35,7 @@ otherwise. Bump the protocol whenever any `GK2Coop.*` message changes what it ca
    `artifacts\bepinex-5.4.23.5` (not in git; it goes into the zip). It builds Release and writes `artifacts\GK2Coop-0.1.0-dev.zip` (a
    fixed file name; the version is in the DLL). Contents: BepInEx and the loader, the plugin,
    the licenses in the plugin folder, `INSTALL-GK2COOP.txt` and `GK2Coop-Guides\`. No settings
-   file: BepInEx writes the defaults (they match `package\com.fabio.gk2coop.cfg`), and an update
+   file: BepInEx writes the defaults (they match `package\de.fredwuz.gk2coop.cfg`), and an update
    keeps the player's settings. Zip paths use `/`.
 2. `scripts\Build-WorkshopItem.ps1` builds the zip, then lays out `artifacts\workshop-item` for
    the game's Workshop uploader: no config folder, the Workshop guide, and the preview picture

@@ -99,7 +99,7 @@ try {
 finally {
     if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
 }
-$configPath = Join-Path $GamePath 'BepInEx\config\com.fabio.gk2coop.cfg'
+$configPath = Join-Path $GamePath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
     throw "Package did not install the expected config: $configPath"
 }

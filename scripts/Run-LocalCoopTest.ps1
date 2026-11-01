@@ -44,9 +44,9 @@ if (-not $SkipInstall) {
 }
 
 function Set-CoopConfig([string]$GamePath, [string]$Mode, [string]$Address, [string]$PlayerName) {
-    $configPath = Join-Path $GamePath 'BepInEx\config\com.fabio.gk2coop.cfg'
+    $configPath = Join-Path $GamePath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
     if (-not (Test-Path -LiteralPath $configPath)) {
-        Copy-Item (Join-Path $projectRoot 'package\com.fabio.gk2coop.cfg') $configPath -Force
+        Copy-Item (Join-Path $projectRoot 'package\de.fredwuz.gk2coop.cfg') $configPath -Force
     }
     $config = Get-Content -LiteralPath $configPath -Raw
     $config = [regex]::Replace($config, '(?m)^StartupMode\s*=.*$', "StartupMode = $Mode")
@@ -68,7 +68,7 @@ function Set-CoopConfig([string]$GamePath, [string]$Mode, [string]$Address, [str
 # The host install is the one the user plays and tests the VM with, so its config is put back
 # exactly as found. Leaving AutoStartNewGame or RelaxStartupGate enabled there would silently
 # skip the menu and the intro on their next real session.
-$hostConfigPath = Join-Path $HostPath 'BepInEx\config\com.fabio.gk2coop.cfg'
+$hostConfigPath = Join-Path $HostPath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 $hostConfigBackup = if (Test-Path -LiteralPath $hostConfigPath) { [IO.File]::ReadAllBytes($hostConfigPath) } else { $null }
 $backupPath = Join-Path $projectRoot 'artifacts\local-test-host-config.backup.cfg'
 if ($null -ne $hostConfigBackup) { Copy-Item -LiteralPath $hostConfigPath -Destination $backupPath -Force }

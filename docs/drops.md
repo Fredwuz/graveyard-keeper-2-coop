@@ -14,6 +14,10 @@ all; the host decides who picks it up, so an item is never credited twice and ne
   `DropPickupRequest`. The host checks the drop still exists and that the player's bag has
   room (against its [shadow copy](player-profiles.md) of that player), credits the player, and
   sends `DropPickupResult` to everyone. An item that does not fit goes back on the ground.
+- **Where they lie.** Each machine throws a new drop out with its own random offset and pushes
+  drops with its own physics, so a log lay somewhere else on every screen. Once a second the host
+  sends the drops that came to rest somewhere other than it last said (`DropPosition`), every new
+  drop once; joiners put theirs there. After a join, all drops are sent again 5 s later.
 - **Merges.** Drops that touch merge. Only the host merges, and it reports a merge only when
   items moved (`DropMerge`); joiners apply the counts.
 - **Join.** The host's [join snapshot](joining.md) sends every drop it has; a joiner first clears
@@ -32,6 +36,7 @@ logs where a harvested item went (diagnostics only, with `DetailedLogs`).
 | `GK2Coop.DropPickupRequest.v2` | joiner → host |
 | `GK2Coop.DropPickupResult.v2` | host → all |
 | `GK2Coop.DropMerge.v1` | host → joiners |
+| `GK2Coop.DropPosition.v1` | host → joiners |
 
 ## Settings
 

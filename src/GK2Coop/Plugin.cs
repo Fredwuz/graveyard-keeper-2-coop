@@ -16,7 +16,7 @@ namespace GK2Coop
     [BepInPlugin(Id, Name, Version)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Id = "com.fabio.gk2coop";
+        public const string Id = "de.fredwuz.gk2coop";
         public const string Name = "Graveyard Keeper 2 Co-op Prototype";
         public const string Version = "0.65.6";
 
@@ -92,6 +92,11 @@ namespace GK2Coop
         private static ConfigEntry<float> connectRetrySeconds;
         private bool autoStartAttempted;
         private float mainSceneReadyAt = -1f;
+        private string playgroundSlot;
+        private string autoJoinAddress;
+        private bool playgroundStarted;
+        private bool autoJoinStarted;
+        private float nextAutoJoin;
         private Rect window = new Rect(20f, 20f, 620f, 510f);
         private Vector2 scroll;
         private bool overlayVisible;
@@ -137,6 +142,7 @@ namespace GK2Coop
                 return;
             }
             InstallSerializerPatch();
+            KeepFormerSettings();
             overlayKey = Config.Bind("UI", "OverlayKey", KeyCode.F8, "Show or hide the co-op diagnostics window.");
             defaultAddress = Config.Bind("Network", "Address", "127.0.0.1", "Host address used by the prototype.");
             defaultPort = Config.Bind("Network", "Port", 8889, "UDP port used by Unity Transport.");
@@ -338,10 +344,16 @@ namespace GK2Coop
             CoopLifecycle.Install(coopHarmony);
             CoopTestTools.Init(Logger);
             CoopTestTools.Enabled = Config.Bind("Testing", "TestTools", false, "Test copies only: Pause > Co-op > Test tools builds a test yard, hands out a kit, starts scenes and sermons, teleports and sets the weather. Not for normal play.").Value;
-            string continueSlot = Config.Bind("Testing", "ContinueSlot", string.Empty, "Test copies only, with TestTools: the save slot the main menu's Continue opens (the playground), whatever its date.").Value;
+            string continueSlot = Config.Bind("Testing", "ContinueSlot", string.Empty, "Test copies only, with TestTools: the save slot the main menu's Continue opens (the playground), whatever its date. Continue is pressed by itself.").Value;
             if (CoopTestTools.Enabled && !string.IsNullOrEmpty(continueSlot))
             {
                 CoopSaveBootstrap.ForceActiveSlotForTest(continueSlot);
+                playgroundSlot = continueSlot;
+            }
+            string autoJoin = Config.Bind("Testing", "AutoJoin", string.Empty, "Test copies only, with TestTools: copy the world of the host at this address and join, by itself, from the main menu (the playground).").Value;
+            if (CoopTestTools.Enabled && !string.IsNullOrEmpty(autoJoin))
+            {
+                autoJoinAddress = autoJoin.Trim();
             }
             CoopWorkLock.Init(Logger);
             CoopWorkLock.Install(coopHarmony);
@@ -390,6 +402,30 @@ namespace GK2Coop
             CoopProfiler.Install(Logger, gameObject, profiler.Value);
             Logger.LogInfo($"{Name} {Version} loaded. Press {overlayKey.Value} for diagnostics.");
             InvokeRepeating(nameof(RefreshShownReport), 1f, 3f);
+        }
+
+        /// <summary>
+        /// The plugin id was com.fabio.gk2coop until the fork's maintainer took it over. BepInEx
+        /// names the settings file after the id, so a player's settings would stay behind in the old
+        /// file: it is copied once, before the first setting is read. The old file is left alone.
+        /// </summary>
+        private void KeepFormerSettings()
+        {
+            string former = System.IO.Path.Combine(Paths.ConfigPath, "com.fabio.gk2coop.cfg");
+            if (System.IO.File.Exists(Config.ConfigFilePath) || !System.IO.File.Exists(former))
+            {
+                return;
+            }
+            try
+            {
+                System.IO.File.Copy(former, Config.ConfigFilePath);
+                Config.Reload();
+                Logger.LogInfo("Settings carried over from com.fabio.gk2coop.cfg.");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning("Could not carry over the settings from com.fabio.gk2coop.cfg: " + Unwrap(ex).Message);
+            }
         }
 
         private void InstallSerializerPatch()
@@ -611,6 +647,7 @@ namespace GK2Coop
             }
 
             DriveAutoStart();
+            DrivePlayground();
 
             if (!startupActionAttempted && Time.unscaledTime >= nextStartupCheck)
             {
@@ -643,7 +680,7 @@ namespace GK2Coop
                     CoopPlayerProfiles.Tick, CoopCraftSync.Tick, CoopSleepSync.Tick, CoopAppearanceSync.Tick,
                     CoopVendorSync.Tick, CoopKnowledgeSync.Tick, CoopSceneSync.Tick, CoopWorldResSync.Tick,
                     CoopSharedGems.Tick, CoopWeatherSync.Tick, CoopSteamLobby.Tick, CoopLogRelay.Tick,
-                    CoopDropTrace.Tick, CoopHud.Tick,
+                    CoopDropTrace.Tick, CoopHud.Tick, CoopDropSync.Tick,
                 };
                 secondTickDue = new float[secondTicks.Length];
                 for (int i = 0; i < secondTicks.Length; i++)
@@ -699,6 +736,62 @@ namespace GK2Coop
             {
                 autoStartAttempted = true;
                 LogSource.LogError("AutoStartNewGame failed: " + Unwrap(ex));
+            }
+        }
+
+        /// <summary>
+        /// The playground on test copies: the host's Continue and the joiners' "copy host world and
+        /// join" are pressed by themselves at the main menu, through what the buttons call. A join
+        /// is tried again every 10 s until it gets in: the host may still be loading, and it sends
+        /// its world to one joiner at a time.
+        /// </summary>
+        private void DrivePlayground()
+        {
+            if (playgroundStarted || (playgroundSlot == null && autoJoinAddress == null) || mainSceneReadyAt < 0f)
+            {
+                return;
+            }
+            float now = Time.unscaledTime;
+            if (now - mainSceneReadyAt < 6f || now < nextAutoJoin || CoopSaveBootstrap.Active)
+            {
+                return;
+            }
+            if (autoJoinStarted && !CoopSaveBootstrap.HasFailed)
+            {
+                // The world copy arrived and is loading (the game stays at MainMenu until it is in).
+                playgroundStarted = true;
+                return;
+            }
+            try
+            {
+                object mainGame = CoopDiagnostics.GetStatic(RequireType("MainGame"), "Instance");
+                if (mainGame == null || Convert.ToString(CoopDiagnostics.GetMember(mainGame, "gameState")) != "MainMenu")
+                {
+                    return;
+                }
+                nextAutoJoin = now + 10f;
+                if (playgroundSlot != null)
+                {
+                    Component menu = Resources.FindObjectsOfTypeAll(RequireType("UIMainMenuWindow")).OfType<Component>()
+                        .FirstOrDefault(window => window != null && window.gameObject.activeInHierarchy);
+                    if (menu == null)
+                    {
+                        return;
+                    }
+                    playgroundStarted = true;
+                    menu.GetType().GetMethod("OnContinueButtonClicked", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Invoke(menu, null);
+                    LogSource.LogInfo("Playground: pressed Continue for " + playgroundSlot + ".");
+                }
+                else
+                {
+                    CoopMenu.CopyAndJoin(autoJoinAddress);
+                    autoJoinStarted = true;
+                    LogSource.LogInfo("Playground: joining " + autoJoinAddress + ".");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogSource.LogInfo("Playground: not yet (" + Unwrap(ex).Message + "); trying again in 10 s.");
             }
         }
 

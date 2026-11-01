@@ -8,7 +8,7 @@ param(
 # folder). Same contents as the zip package, laid out to be copied straight into the game folder,
 # with two differences:
 #   - no config file: merging an update must never reset a player's name, address or port.
-#     BepInEx writes the defaults on first start, and they match package\com.fabio.gk2coop.cfg.
+#     BepInEx writes the defaults on first start, and they match package\de.fredwuz.gk2coop.cfg.
 #   - the Workshop install guide instead of the zip one.
 # Files starting with '_' are skipped by the game's uploader, so _UPLOAD-NOTES.txt stays local.
 

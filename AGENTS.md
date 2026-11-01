@@ -100,5 +100,5 @@ Never commit anything from `testbed\` or `artifacts\`.
 
 ## Settings
 
-Every setting with its default and description: [package/com.fabio.gk2coop.cfg](package/com.fabio.gk2coop.cfg).
+Every setting with its default and description: [package/de.fredwuz.gk2coop.cfg](package/de.fredwuz.gk2coop.cfg).
 They are bound in `Plugin.Awake`; keep that file in step when adding one.

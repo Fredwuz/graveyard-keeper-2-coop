@@ -65,5 +65,5 @@ T 채팅 - F6 상태 - F7 이름표 - F10 Steam 친구 초대 - F11 외형 변�
 .doorstop_version, changelog.txt도 삭제합니다.
 안내서 INSTALL-GK2COOP.txt와 GK2Coop-Guides도 삭제할 수 있습니다.
 
-설정: BepInEx\config\com.fabio.gk2coop.cfg
+설정: BepInEx\config\de.fredwuz.gk2coop.cfg
 개발 버전입니다. 소중한 저장 파일은 백업해 두세요.

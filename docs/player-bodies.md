@@ -7,6 +7,10 @@ unfinished; these parts make its remote bodies behave.
 
 - **Movement** travels as the game's own commands. The host forwards a joiner's commands to the
   other joiners ([CoopHostRelay.cs](../src/GK2Coop/CoopHostRelay.cs), see [session](session.md)).
+  The game moves the body of a command's sender, and on a joiner every command comes from the
+  host, so `CharMoveExecutePrefix` in [CoopPatches.cs](../src/GK2Coop/CoopPatches.cs) moves the
+  player the command names instead. Without it, with three or more players, the host's body
+  jumped between the host and the other joiners.
 - **Repairs to the game's remote-player setup.** [CoopPatches.cs](../src/GK2Coop/CoopPatches.cs):
   remote bodies stay kinematic so replicated moves are accepted (`[Fixes] RemoteBodyKinematic`),
   a new remote body is put into the local player's scene (`MatchRemoteBodyScene`), and it spawns

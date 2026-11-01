@@ -70,7 +70,7 @@ function Launch-UntilLogged([string]$Pattern, [int]$TimeoutSeconds = 180) {
 Assert-TestInstall $ClientPath
 $pluginDir = Join-Path $ClientPath 'BepInEx\plugins\GK2Coop'
 $installed = Join-Path $pluginDir 'GK2Coop.dll'
-$configPath = Join-Path $ClientPath 'BepInEx\config\com.fabio.gk2coop.cfg'
+$configPath = Join-Path $ClientPath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 $log = Join-Path $ClientPath 'BepInEx\LogOutput.log'
 if (Test-Path -LiteralPath (Join-Path $ClientPath 'BepInEx\plugins\GameplayProbe.dll')) { throw "A probe is installed in $ClientPath (a test is running or was interrupted)." }
 if ((Get-TestGameProcesses @($ClientPath)).Count -gt 0) { throw "The test copy $ClientPath is running." }

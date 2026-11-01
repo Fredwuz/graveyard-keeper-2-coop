@@ -35,7 +35,7 @@ function Stop-Instances {
     catch { Write-Warning "Could not enumerate test processes: $_" }
 }
 
-function Config-Path([string]$Install) { Join-Path $Install 'BepInEx\config\com.fabio.gk2coop.cfg' }
+function Config-Path([string]$Install) { Join-Path $Install 'BepInEx\config\de.fredwuz.gk2coop.cfg' }
 function Probe-Path([string]$Install) { Join-Path $Install 'BepInEx\plugins\GameplayProbe.dll' }
 
 if (@(Get-Process -Name $processName -ErrorAction SilentlyContinue).Count -gt 0) {

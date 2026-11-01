@@ -80,5 +80,5 @@ points the game's "the player" statics at that player for one synchronous call.
 session ends and runs every reset in one place.
 
 **Settings.** Every setting with its description and default is in
-[package/com.fabio.gk2coop.cfg](../package/com.fabio.gk2coop.cfg). In a game it lives in
-`BepInEx\config\com.fabio.gk2coop.cfg`. Each feature page lists its own.
+[package/de.fredwuz.gk2coop.cfg](../package/de.fredwuz.gk2coop.cfg). In a game it lives in
+`BepInEx\config\de.fredwuz.gk2coop.cfg`. Each feature page lists its own.

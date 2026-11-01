@@ -1,4 +1,4 @@
-﻿Graveyard Keeper 2 協力プレイ 0.65.4
+﻿Graveyard Keeper 2 協力プレイ 0.65.6
 
 インストール
 1. 一緒に遊ぶ全員が、同じバージョンのこのMODを入れる必要があります。
@@ -54,5 +54,5 @@ T チャット - F6 状態 - F7 名前表示 - F10 Steamのフレンドを招待
 doorstop_config.ini、.doorstop_version、changelog.txt も削除します。
 説明書の INSTALL-GK2COOP.txt と GK2Coop-Guides も削除できます。
 
-設定：BepInEx\config\com.fabio.gk2coop.cfg
+設定：BepInEx\config\de.fredwuz.gk2coop.cfg
 これは開発版です。大切なセーブデータはバックアップしてください。

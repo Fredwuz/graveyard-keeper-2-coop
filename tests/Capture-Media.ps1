@@ -36,7 +36,7 @@ $cast = @(
     [pscustomobject]@{ Name = 'Edda'; Path = "$(Split-Path $PSScriptRoot)\testbed\GK2Coop-FullClient2"; Look = '4|2|0|0'; Lang = 'ja'; Process = $null }
 ) | Select-Object -First $Players
 $hostPlayer = $cast[0]
-$hostConfig = Join-Path $hostPlayer.Path 'BepInEx\config\com.fabio.gk2coop.cfg'
+$hostConfig = Join-Path $hostPlayer.Path 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 $hostPort = [regex]::Match((Get-Content -LiteralPath $hostConfig -Raw), '(?m)^Port\s*=\s*(\d+)').Groups[1].Value
 $slot = 'GK2Coop_Test_' + (Get-Date -Format 'yyyyMMddHHmmss') + '_media'
 
@@ -122,7 +122,7 @@ Note "Media capture: $($cast.Count) players ($(($cast | ForEach-Object Name) -jo
 
 try {
     foreach ($p in $cast) {
-        $config = Join-Path $p.Path 'BepInEx\config\com.fabio.gk2coop.cfg'
+        $config = Join-Path $p.Path 'BepInEx\config\de.fredwuz.gk2coop.cfg'
         Copy-Item -LiteralPath $config -Destination (Join-Path $OutputPath "$($p.Name)-config-before.cfg")
         $cfg = Get-Content -LiteralPath $config -Raw
         $values = if ($p -eq $hostPlayer) { @(@('StartupMode', 'Host'), @('Address', '0.0.0.0'), @('Port', $hostPort)) } else { @(@('StartupMode', 'None'), @('Address', '127.0.0.1'), @('Port', $hostPort)) }
@@ -434,7 +434,7 @@ finally {
         if (Test-Path -LiteralPath $probe) { Move-Item -LiteralPath $probe -Destination (Join-Path $OutputPath "$n-GameplayProbe.dll") -Force }
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $p.Path 'BepInEx') -Filter 'GK2Coop.Probe.command*' -ErrorAction SilentlyContinue) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $OutputPath "$n-$($file.Name)") -Force }
         $before = Join-Path $OutputPath "$n-config-before.cfg"
-        if (Test-Path -LiteralPath $before) { Copy-Item -LiteralPath $before -Destination (Join-Path $p.Path 'BepInEx\config\com.fabio.gk2coop.cfg') -Force }
+        if (Test-Path -LiteralPath $before) { Copy-Item -LiteralPath $before -Destination (Join-Path $p.Path 'BepInEx\config\de.fredwuz.gk2coop.cfg') -Force }
         foreach ($file in Get-ChildItem -LiteralPath (SaveFolderOf $p) -Filter 'GK2Coop_*' -File -ErrorAction SilentlyContinue) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $OutputPath "$n-$($file.Name)") -Force }
     }
     Note "Game preferences restored: $(Restore-GamePrefs $prefs) value(s)"

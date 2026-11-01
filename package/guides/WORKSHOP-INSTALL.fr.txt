@@ -73,5 +73,5 @@ Supprime BepInEx\plugins\GK2Coop dans le dossier du jeu. Pour retirer aussi BepI
 winhttp.dll, doorstop_config.ini, .doorstop_version et changelog.txt.
 Les guides INSTALL-GK2COOP.txt et GK2Coop-Guides peuvent aussi être supprimés.
 
-Réglages : BepInEx\config\com.fabio.gk2coop.cfg
+Réglages : BepInEx\config\de.fredwuz.gk2coop.cfg
 Ceci est une version de développement. Sauvegarde les parties auxquelles tu tiens.

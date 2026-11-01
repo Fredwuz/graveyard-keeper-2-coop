@@ -40,10 +40,10 @@ $probeDll = Join-Path (Split-Path $PSScriptRoot) 'GameplayProbe\bin\Release\net4
 $realSaveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
 $saveFolder = Join-Path "$(Split-Path (Split-Path $PSScriptRoot))\testbed\GK2Coop-Saves" (Split-Path -Leaf $HostPath)
 $slot = 'GK2Coop_Test_' + (Get-Date -Format 'yyyyMMddHHmmss') + '_vm'
-$hostConfig = Join-Path $HostPath 'BepInEx\config\com.fabio.gk2coop.cfg'
+$hostConfig = Join-Path $HostPath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 $hostLog = Join-Path $HostPath 'BepInEx\LogOutput.log'
 $guestGame = 'Game'
-$guestConfig = 'Game\BepInEx\config\com.fabio.gk2coop.cfg'
+$guestConfig = 'Game\BepInEx\config\de.fredwuz.gk2coop.cfg'
 $guestLog = 'Game\BepInEx\LogOutput.log'
 New-Item -ItemType Directory -Force -Path $OutputPath, $saveFolder | Out-Null
 
@@ -118,7 +118,7 @@ foreach ($x in $extras) {
     Assert-TestInstall $x.Path
     if ((Get-TestGameProcesses @($x.Path)).Count -gt 0) { throw "The $($x.Name) copy is running." }
     if (Test-Path -LiteralPath (Join-Path $x.Path 'BepInEx\plugins\GameplayProbe.dll')) { throw "A probe is installed in the $($x.Name) copy (a test is running or was interrupted)." }
-    Copy-Item -LiteralPath (Join-Path $x.Path 'BepInEx\config\com.fabio.gk2coop.cfg') -Destination (Join-Path $OutputPath "$($x.Name)-config-before.cfg")
+    Copy-Item -LiteralPath (Join-Path $x.Path 'BepInEx\config\de.fredwuz.gk2coop.cfg') -Destination (Join-Path $OutputPath "$($x.Name)-config-before.cfg")
 }
 function ExtraProbe($x, [string]$command) {
     $env:GK2COOP_TEST_CLIENT_PATH = $x.Path
@@ -130,7 +130,7 @@ function ExtraProbe($x, [string]$command) {
 $hostProcess = $null
 try {
     foreach ($x in $extras) {
-        $xConfig = Join-Path $x.Path 'BepInEx\config\com.fabio.gk2coop.cfg'
+        $xConfig = Join-Path $x.Path 'BepInEx\config\de.fredwuz.gk2coop.cfg'
         $cfgX = Get-Content -LiteralPath $xConfig -Raw
         foreach ($pair in @(@('StartupMode', 'None'), @('Address', '127.0.0.1'), @('Port', $hostPort), @('AutoStartNewGame', 'false'), @('PlayerName', $x.Name), @('Transport', 'IP'))) { $cfgX = Set-Cfg $cfgX $pair[0] $pair[1] }
         [IO.File]::WriteAllText($xConfig, $cfgX)
@@ -457,7 +457,7 @@ finally {
         $xProbe = Join-Path $x.Path 'BepInEx\plugins\GameplayProbe.dll'
         if (Test-Path -LiteralPath $xProbe) { Move-Item -LiteralPath $xProbe -Destination (Join-Path $OutputPath "$n-GameplayProbe.dll") -Force }
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $x.Path 'BepInEx') -Filter 'GK2Coop.Probe.command*' -ErrorAction SilentlyContinue) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $OutputPath "$n-$($file.Name)") -Force }
-        if (Test-Path -LiteralPath (Join-Path $OutputPath "$n-config-before.cfg")) { Copy-Item -LiteralPath (Join-Path $OutputPath "$n-config-before.cfg") -Destination (Join-Path $x.Path 'BepInEx\config\com.fabio.gk2coop.cfg') -Force }
+        if (Test-Path -LiteralPath (Join-Path $OutputPath "$n-config-before.cfg")) { Copy-Item -LiteralPath (Join-Path $OutputPath "$n-config-before.cfg") -Destination (Join-Path $x.Path 'BepInEx\config\de.fredwuz.gk2coop.cfg') -Force }
         # This game's copy of the host's world: kept with the run, out of its save folder.
         foreach ($file in Get-ChildItem -LiteralPath $x.Saves -Filter 'GK2Coop_*' -File -ErrorAction SilentlyContinue) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $OutputPath "$n-$($file.Name)") -Force }
     }

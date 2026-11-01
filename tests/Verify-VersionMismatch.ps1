@@ -71,7 +71,7 @@ $saveHashes = @{}
 foreach ($file in Get-ChildItem -LiteralPath $realSaveFolder -File | Where-Object { $_.Name -notlike 'GK2Coop_*' -and $_.Extension -in '.dat', '.info' }) { $saveHashes[$file.Name] = (Get-FileHash -LiteralPath $file.FullName).Hash }
 $prefs = Save-GamePrefs
 foreach ($side in $copies.Keys) {
-    Copy-Item -LiteralPath (Join-Path $copies[$side] 'BepInEx\config\com.fabio.gk2coop.cfg') -Destination (Join-Path $OutputPath "$side-config-before.cfg")
+    Copy-Item -LiteralPath (Join-Path $copies[$side] 'BepInEx\config\de.fredwuz.gk2coop.cfg') -Destination (Join-Path $OutputPath "$side-config-before.cfg")
     Copy-Item -LiteralPath (Join-Path $copies[$side] 'BepInEx\plugins\GK2Coop\GK2Coop.dll') -Destination (Join-Path $OutputPath "$side-GK2Coop-before.dll")
 }
 
@@ -84,12 +84,12 @@ try {
     foreach ($copy in $copies.Values) { Copy-Item -LiteralPath $probeDll -Destination (Join-Path $copy 'BepInEx\plugins\GameplayProbe.dll') }
     $oldSide = if ($Old -eq 'OldHost') { 'Host' } else { 'Client' }
     Copy-Item -LiteralPath $OldDll -Destination (Join-Path $copies[$oldSide] 'BepInEx\plugins\GK2Coop\GK2Coop.dll') -Force
-    $hostCfgPath = Join-Path $HostPath 'BepInEx\config\com.fabio.gk2coop.cfg'
+    $hostCfgPath = Join-Path $HostPath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
     $hostCfg = Get-Content -LiteralPath $hostCfgPath -Raw
     foreach ($pair in @(@('StartupMode', 'Host'), @('Address', '0.0.0.0'), @('AutoStartNewGame', 'false'), @('PlayerName', 'Host'), @('Transport', 'IP'))) { $hostCfg = Set-Cfg $hostCfg $pair[0] $pair[1] }
     [IO.File]::WriteAllText($hostCfgPath, $hostCfg)
     $hostPort = [regex]::Match($hostCfg, '(?m)^Port\s*=\s*(\d+)').Groups[1].Value
-    $clientCfgPath = Join-Path $ClientPath 'BepInEx\config\com.fabio.gk2coop.cfg'
+    $clientCfgPath = Join-Path $ClientPath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
     $clientCfg = Get-Content -LiteralPath $clientCfgPath -Raw
     foreach ($pair in @(@('StartupMode', 'None'), @('AutoStartNewGame', 'false'), @('PlayerName', 'Client'), @('Transport', 'IP'))) { $clientCfg = Set-Cfg $clientCfg $pair[0] $pair[1] }
     [IO.File]::WriteAllText($clientCfgPath, $clientCfg)
@@ -134,7 +134,7 @@ finally {
         $log = Join-Path $copy 'BepInEx\LogOutput.log'
         if (Test-Path -LiteralPath $log) { Copy-Item -LiteralPath $log -Destination (Join-Path $OutputPath "$side-log.txt") -Force }
         Copy-Item -LiteralPath (Join-Path $OutputPath "$side-GK2Coop-before.dll") -Destination (Join-Path $copy 'BepInEx\plugins\GK2Coop\GK2Coop.dll') -Force
-        Copy-Item -LiteralPath (Join-Path $OutputPath "$side-config-before.cfg") -Destination (Join-Path $copy 'BepInEx\config\com.fabio.gk2coop.cfg') -Force
+        Copy-Item -LiteralPath (Join-Path $OutputPath "$side-config-before.cfg") -Destination (Join-Path $copy 'BepInEx\config\de.fredwuz.gk2coop.cfg') -Force
         $probe = Join-Path $copy 'BepInEx\plugins\GameplayProbe.dll'
         if (Test-Path -LiteralPath $probe) { Move-Item -LiteralPath $probe -Destination (Join-Path $OutputPath "$side-GameplayProbe.dll") -Force }
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $copy 'BepInEx') -Filter 'GK2Coop.Probe.command*' -ErrorAction SilentlyContinue) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $OutputPath "$side-$($file.Name)") -Force }

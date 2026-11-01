@@ -18,6 +18,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GameplayProbe\TestSafety.ps1')
+# The default list names every copy the scripts know; a PC need not have them all.
+if (-not $PSBoundParameters.ContainsKey('Copies')) { $Copies = @($Copies | Where-Object { Test-Path -LiteralPath $_ }) }
 
 function Get-GameVersion([string]$Path) {
     # The version the game prints at start ("Game: Graveyard Keeper 2 1.007.1") is in the data
@@ -25,7 +27,8 @@ function Get-GameVersion([string]$Path) {
     $asm = Join-Path $Path 'GraveyardKeeper2_Data\Managed\Assembly-CSharp.dll'
     $bytes = [IO.File]::ReadAllBytes((Join-Path $Path 'GraveyardKeeper2_Data\globalgamemanagers'))
     $text = [Text.Encoding]::ASCII.GetString($bytes)
-    $m = [regex]::Match($text, '\b1\.\d{3}\.\d+\b')
+    # Since 1.010 without a third number ("1.011").
+    $m = [regex]::Match($text, '\b1\.\d{3}(\.\d+)?\b')
     [pscustomobject]@{ Version = $(if ($m.Success) { $m.Value } else { '?' }); Hash = (Get-FileHash -LiteralPath $asm).Hash.Substring(0, 8) }
 }
 

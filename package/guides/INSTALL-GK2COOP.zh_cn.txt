@@ -1,4 +1,4 @@
-﻿Graveyard Keeper 2 联机合作 0.65.4
+﻿Graveyard Keeper 2 联机合作 0.65.6
 
 安装
 1. 一起玩的每个人都需要安装相同版本的这个模组。
@@ -50,5 +50,5 @@ T 聊天 - F6 状态 - F7 名字 - F10 邀请 Steam 好友 - F11 更改外观
 .doorstop_version 和 changelog.txt。
 说明文件 INSTALL-GK2COOP.txt 和 GK2Coop-Guides 也可以删除。
 
-设置：BepInEx\config\com.fabio.gk2coop.cfg
+设置：BepInEx\config\de.fredwuz.gk2coop.cfg
 这是开发版本。请备份你在意的存档。

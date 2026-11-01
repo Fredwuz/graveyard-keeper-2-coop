@@ -9,7 +9,7 @@ using UnityEngine;
 
 // Temporary integration-test plugin. Never include in a release package.
 // Commands run on Unity's main thread against a disposable AutoStartNewGame session.
-[BepInPlugin("com.fabio.gk2coop.gameplayprobe", "GK2 Gameplay Probe", "0.1.0")]
+[BepInPlugin("de.fredwuz.gk2coop.gameplayprobe", "GK2 Gameplay Probe", "0.1.0")]
 public sealed class GameplayProbe : BaseUnityPlugin
 {
     private string commandPath;
@@ -40,7 +40,7 @@ public sealed class GameplayProbe : BaseUnityPlugin
             enabled = false;
             return;
         }
-        string config = File.ReadAllText(Path.Combine(Paths.ConfigPath, "com.fabio.gk2coop.cfg"));
+        string config = File.ReadAllText(Path.Combine(Paths.ConfigPath, "de.fredwuz.gk2coop.cfg"));
         if (string.IsNullOrEmpty(continueSlot) && !menuConnectAllowed &&
             !System.Text.RegularExpressions.Regex.IsMatch(config, @"(?m)^AutoStartNewGame\s*=\s*true\s*$"))
         {

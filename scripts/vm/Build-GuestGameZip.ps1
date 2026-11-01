@@ -25,7 +25,7 @@ try {
     New-Item -ItemType Directory -Force -Path $plugin | Out-Null
     Copy-Item -LiteralPath (Join-Path $SourcePath 'BepInEx\plugins\GK2Coop\GK2Coop.dll') -Destination $plugin
 
-    $config = Join-Path $stage 'BepInEx\config\com.fabio.gk2coop.cfg'
+    $config = Join-Path $stage 'BepInEx\config\de.fredwuz.gk2coop.cfg'
     $text = [IO.File]::ReadAllText($config)
     foreach ($pair in @(@('StartupMode', 'None'), @('Address', $HostAddress), @('PlayerName', $PlayerName),
                         @('PlayerKey', ''), @('AutoStartNewGame', 'false'), @('RelaxStartupGate', 'false'),

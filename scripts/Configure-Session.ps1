@@ -13,7 +13,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$configPath = Join-Path $GamePath 'BepInEx\config\com.fabio.gk2coop.cfg'
+$configPath = Join-Path $GamePath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 $executablePath = Join-Path $GamePath 'GraveyardKeeper2Demo.exe'
 
 if (Get-Process -Name 'GraveyardKeeper2Demo' -ErrorAction SilentlyContinue) {

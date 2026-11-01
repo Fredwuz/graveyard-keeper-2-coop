@@ -186,9 +186,9 @@ $testInfo = Join-Path $saveFolder ($slot + '.info')
 $existingCoopSlots = @(Get-ChildItem -LiteralPath $saveFolder -Filter 'GK2Coop_*.dat' -File -ErrorAction SilentlyContinue | ForEach-Object BaseName)
 
 . (Join-Path $PSScriptRoot 'TestSafety.ps1')
-function ConfigPath($peer) { Join-Path $peer.Path 'BepInEx\config\com.fabio.gk2coop.cfg' }
+function ConfigPath($peer) { Join-Path $peer.Path 'BepInEx\config\de.fredwuz.gk2coop.cfg' }
 # The host copy's own port (the second pair of copies uses 8890).
-$hostPort = [regex]::Match((Get-Content -LiteralPath (Join-Path $HostPath 'BepInEx\config\com.fabio.gk2coop.cfg') -Raw), '(?m)^Port\s*=\s*(\d+)').Groups[1].Value
+$hostPort = [regex]::Match((Get-Content -LiteralPath (Join-Path $HostPath 'BepInEx\config\de.fredwuz.gk2coop.cfg') -Raw), '(?m)^Port\s*=\s*(\d+)').Groups[1].Value
 if (-not $hostPort) { $hostPort = '8889' }
 function ProbePath($peer) { Join-Path $peer.Path 'BepInEx\plugins\GameplayProbe.dll' }
 function Probe([string]$peer, [string]$command) {

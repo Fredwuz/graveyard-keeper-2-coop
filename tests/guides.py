@@ -71,7 +71,7 @@ well (if no other mod uses it), also delete the BepInEx folder, winhttp.dll,
 doorstop_config.ini, .doorstop_version and changelog.txt.
 The guides INSTALL-GK2COOP.txt and GK2Coop-Guides can go too.
 
-Settings: BepInEx\\config\\com.fabio.gk2coop.cfg
+Settings: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 This is a development build. Back up saves you care about.
 """
 
@@ -160,7 +160,7 @@ keine andere Mod es nutzt), zusätzlich den Ordner BepInEx sowie winhttp.dll,
 doorstop_config.ini, .doorstop_version und changelog.txt löschen.
 Die Anleitungen INSTALL-GK2COOP.txt und GK2Coop-Guides können ebenfalls weg.
 
-Einstellungen: BepInEx\\config\\com.fabio.gk2coop.cfg
+Einstellungen: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 Dies ist eine Entwicklungsversion. Sichere Spielstände, die dir wichtig sind.
 """
 
@@ -250,7 +250,7 @@ Supprime BepInEx\\plugins\\GK2Coop dans le dossier du jeu. Pour retirer aussi Be
 winhttp.dll, doorstop_config.ini, .doorstop_version et changelog.txt.
 Les guides INSTALL-GK2COOP.txt et GK2Coop-Guides peuvent aussi être supprimés.
 
-Réglages : BepInEx\\config\\com.fabio.gk2coop.cfg
+Réglages : BepInEx\\config\\de.fredwuz.gk2coop.cfg
 Ceci est une version de développement. Sauvegarde les parties auxquelles tu tiens.
 """
 
@@ -338,7 +338,7 @@ Borra BepInEx\\plugins\\GK2Coop en la carpeta del juego. Para quitar también Be
 doorstop_config.ini, .doorstop_version y changelog.txt.
 Las guías INSTALL-GK2COOP.txt y GK2Coop-Guides también se pueden borrar.
 
-Ajustes: BepInEx\\config\\com.fabio.gk2coop.cfg
+Ajustes: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 Esta es una versión en desarrollo. Haz copia de las partidas que te importen.
 """
 
@@ -426,7 +426,7 @@ nenhum outro mod o usa), apague também a pasta BepInEx, winhttp.dll,
 doorstop_config.ini, .doorstop_version e changelog.txt.
 Os guias INSTALL-GK2COOP.txt e GK2Coop-Guides também podem ser apagados.
 
-Configurações: BepInEx\\config\\com.fabio.gk2coop.cfg
+Configurações: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 Esta é uma versão em desenvolvimento. Faça backup dos saves que importam para você.
 """
 
@@ -514,7 +514,7 @@ go inny mod), usuń również folder BepInEx, winhttp.dll, doorstop_config.ini,
 .doorstop_version i changelog.txt.
 Przewodniki INSTALL-GK2COOP.txt i GK2Coop-Guides też można usunąć.
 
-Ustawienia: BepInEx\\config\\com.fabio.gk2coop.cfg
+Ustawienia: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 To wersja rozwojowa. Zrób kopię zapisów, na których ci zależy.
 """
 
@@ -600,7 +600,7 @@ T чат - F6 состояние - F7 имена - F10 пригласить др
 doorstop_config.ini, .doorstop_version и changelog.txt.
 Инструкции INSTALL-GK2COOP.txt и GK2Coop-Guides тоже можно удалить.
 
-Настройки: BepInEx\\config\\com.fabio.gk2coop.cfg
+Настройки: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 Это версия в разработке. Сделай копию сохранений, которыми дорожишь.
 """
 
@@ -687,7 +687,7 @@ Oyun klasöründeki BepInEx\\plugins\\GK2Coop klasörünü sil. BepInEx'i de kal
 doorstop_config.ini, .doorstop_version ve changelog.txt dosyalarını da sil.
 INSTALL-GK2COOP.txt ve GK2Coop-Guides kılavuzları da silinebilir.
 
-Ayarlar: BepInEx\\config\\com.fabio.gk2coop.cfg
+Ayarlar: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 Bu bir geliştirme sürümüdür. Önemli kayıtlarını yedekle.
 """
 
@@ -770,7 +770,7 @@ T チャット - F6 状態 - F7 名前表示 - F10 Steamのフレンドを招待
 doorstop_config.ini、.doorstop_version、changelog.txt も削除します。
 説明書の INSTALL-GK2COOP.txt と GK2Coop-Guides も削除できます。
 
-設定：BepInEx\\config\\com.fabio.gk2coop.cfg
+設定：BepInEx\\config\\de.fredwuz.gk2coop.cfg
 これは開発版です。大切なセーブデータはバックアップしてください。
 """
 
@@ -849,7 +849,7 @@ T 聊天 - F6 状态 - F7 名字 - F10 邀请 Steam 好友 - F11 更改外观
 .doorstop_version 和 changelog.txt。
 说明文件 INSTALL-GK2COOP.txt 和 GK2Coop-Guides 也可以删除。
 
-设置：BepInEx\\config\\com.fabio.gk2coop.cfg
+设置：BepInEx\\config\\de.fredwuz.gk2coop.cfg
 这是开发版本。请备份你在意的存档。
 """
 
@@ -930,7 +930,7 @@ T 채팅 - F6 상태 - F7 이름표 - F10 Steam 친구 초대 - F11 외형 변�
 .doorstop_version, changelog.txt도 삭제합니다.
 안내서 INSTALL-GK2COOP.txt와 GK2Coop-Guides도 삭제할 수 있습니다.
 
-설정: BepInEx\\config\\com.fabio.gk2coop.cfg
+설정: BepInEx\\config\\de.fredwuz.gk2coop.cfg
 개발 버전입니다. 소중한 저장 파일은 백업해 두세요.
 """
 

@@ -36,7 +36,7 @@ if ($Client3Path -and (Test-Path -LiteralPath (Join-Path $Client3Path 'Graveyard
 $clientCount = $peers.Count - 1
 Write-Host "Running with $($peers.Count) players ($clientCount clients)."
 
-function Config-Path([string]$Install) { Join-Path $Install 'BepInEx\config\com.fabio.gk2coop.cfg' }
+function Config-Path([string]$Install) { Join-Path $Install 'BepInEx\config\de.fredwuz.gk2coop.cfg' }
 function Probe-Path([string]$Install) { Join-Path $Install 'BepInEx\plugins\GameplayProbe.dll' }
 function Stop-Instances {
     Get-Process -Name 'GraveyardKeeper2Demo' -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -78,7 +78,7 @@ function Wait-World([string]$Install, [int]$TimeoutSeconds = 300) {
 function Set-PeerConfig($Peer) {
     $path = Config-Path $Peer.Path
     if (-not (Test-Path -LiteralPath $path)) {
-        Copy-Item (Join-Path $projectRoot 'package\com.fabio.gk2coop.cfg') $path -Force
+        Copy-Item (Join-Path $projectRoot 'package\de.fredwuz.gk2coop.cfg') $path -Force
     }
     $config = Get-Content -LiteralPath $path -Raw
     $settings = @{

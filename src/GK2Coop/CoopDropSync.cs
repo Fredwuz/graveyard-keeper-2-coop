@@ -34,6 +34,7 @@ namespace GK2Coop
         internal const string PickupRequestMessage = "GK2Coop.DropPickupRequest.v2";
         internal const string PickupResultMessage = "GK2Coop.DropPickupResult.v2";
         internal const string MergeMessage = "GK2Coop.DropMerge.v1";
+        internal const string PositionMessage = "GK2Coop.DropPosition.v1";
 
         private static ManualLogSource log;
         private static int spawnsSent;
@@ -65,7 +66,8 @@ namespace GK2Coop
                    ", pickup requests sent/received=" + pickupRequestsSent + "/" + pickupRequestsReceived +
                    ", accepted=" + pickupAccepted + ", rejected=" + pickupRejected +
                    ", results applied=" + pickupResultsApplied + ", merges sent/applied=" +
-                   mergesSent + "/" + mergesApplied + ", unresolved=" + unresolved;
+                   mergesSent + "/" + mergesApplied + ", positions sent/applied=" + positionsSent + "/" + positionsApplied +
+                   ", unresolved=" + unresolved;
         }
 
         internal static void Install(Harmony harmony)
@@ -351,6 +353,193 @@ namespace GK2Coop
             }
         }
 
+        // ------------------------------------------------------------------ where drops lie
+
+        private const int MaxPositionsPerMessage = 500;
+        private static Dictionary<string, Vector3> lastSeen = new Dictionary<string, Vector3>();
+        private static readonly Dictionary<string, Vector3> sentPositions = new Dictionary<string, Vector3>();
+        private static float resendAt;
+        private static bool positionsBroken;
+        private static int positionsSent;
+        private static int positionsApplied;
+        private static MethodInfo findView;
+        private static MethodInfo applyPosition;
+
+        /// <summary>
+        /// The host, once a second: the drops that came to rest somewhere other than the joiners were
+        /// last told. Every machine throws a new drop out with its own random offset and pushes it
+        /// with its own physics (players walk into logs), so a log lay in a different place on each
+        /// screen (found in the playground with three players). The host's place is the one place.
+        /// </summary>
+        internal static void Tick()
+        {
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (!Enabled || positionsBroken || !SessionIsLive(netcode) || !netcode.IsHost || netcode.ConnectedClientsIds.Count < 2 || !InWorld())
+            {
+                return;
+            }
+            if (resendAt > 0f && Time.unscaledTime >= resendAt)
+            {
+                resendAt = 0f;
+                sentPositions.Clear();
+            }
+            try
+            {
+                SendRestingPositions(netcode);
+            }
+            catch (Exception ex)
+            {
+                // A game update that changed the drops turns this off, not the rest of the sharing.
+                positionsBroken = true;
+                log.LogWarning("Drop positions are no longer shared: " + Plugin.Unwrap(ex).Message);
+            }
+        }
+
+        /// <summary>
+        /// A joiner was let in: every drop's place is sent again a little later, once its copies of
+        /// the drops have landed where its own physics put them.
+        /// </summary>
+        internal static void ResendPositions()
+        {
+            resendAt = Time.unscaledTime + 5f;
+        }
+
+        private static void SendRestingPositions(NetworkManager netcode)
+        {
+            WorldData world = MainGame.Instance?.GameSave?.worldData;
+            if (world == null)
+            {
+                return;
+            }
+            List<string> loaded = world.LoadedScenes;
+            var seen = new Dictionary<string, Vector3>();
+            var moved = new List<KeyValuePair<string, Vector3>>();
+            foreach (GameSceneData scene in world.gameSceneDataList)
+            {
+                if (scene == null || !loaded.Contains(scene.id))
+                {
+                    continue;
+                }
+                foreach (DropData drop in scene.droppedItems)
+                {
+                    string id = drop == null || drop.IsRemoving || drop.UniqueId == null ? null : drop.UniqueId.Id;
+                    if (string.IsNullOrEmpty(id))
+                    {
+                        continue;
+                    }
+                    Vector3 position = drop.Position;
+                    seen[id] = position;
+                    // Still flying or sliding: wait until it lies still. A drop not sent before
+                    // (new, or every drop after a join) is sent once it does.
+                    if (!lastSeen.TryGetValue(id, out Vector3 before) || (before - position).sqrMagnitude > 0.0001f ||
+                        (sentPositions.TryGetValue(id, out Vector3 sent) && (sent - position).sqrMagnitude < 0.01f))
+                    {
+                        continue;
+                    }
+                    sentPositions[id] = position;
+                    moved.Add(new KeyValuePair<string, Vector3>(id, position));
+                }
+            }
+            lastSeen = seen;
+            foreach (string gone in new List<string>(sentPositions.Keys))
+            {
+                if (!seen.ContainsKey(gone))
+                {
+                    sentPositions.Remove(gone);
+                }
+            }
+            for (int first = 0; first < moved.Count; first += MaxPositionsPerMessage)
+            {
+                int count = Math.Min(MaxPositionsPerMessage, moved.Count - first);
+                using (var writer = new FastBufferWriter(1024, Allocator.Temp, 64 * 1024))
+                {
+                    writer.WriteValueSafe(count);
+                    for (int i = first; i < first + count; i++)
+                    {
+                        writer.WriteValueSafe(new FixedString128Bytes(moved[i].Key));
+                        writer.WriteValueSafe(moved[i].Value);
+                    }
+                    Broadcast(netcode, PositionMessage, writer);
+                }
+            }
+            positionsSent += moved.Count;
+        }
+
+        internal static void ReceivePositions(ulong senderClientId, FastBufferReader reader)
+        {
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (!Enabled || positionsBroken || netcode == null || !netcode.IsListening || netcode.IsHost ||
+                senderClientId != NetworkManager.ServerClientId)
+            {
+                return;
+            }
+            try
+            {
+                reader.ReadValueSafe(out int count);
+                if (count <= 0 || count > MaxPositionsPerMessage)
+                {
+                    return;
+                }
+                var wanted = new Dictionary<string, Vector3>();
+                for (int i = 0; i < count; i++)
+                {
+                    reader.ReadValueSafe(out FixedString128Bytes id);
+                    reader.ReadValueSafe(out Vector3 position);
+                    if (!float.IsNaN(position.x + position.y + position.z) && !float.IsInfinity(position.x + position.y + position.z))
+                    {
+                        wanted[id.ToString()] = position;
+                    }
+                }
+                ApplyPositions(wanted);
+            }
+            catch (Exception ex)
+            {
+                unresolved++;
+                log.LogWarning("Could not apply drop positions: " + Plugin.Unwrap(ex).Message);
+            }
+        }
+
+        private static void ApplyPositions(Dictionary<string, Vector3> wanted)
+        {
+            WorldData world = MainGame.Instance?.GameSave?.worldData;
+            if (world == null)
+            {
+                return;
+            }
+            findView = findView ?? AccessTools.Method(typeof(DropSystem), "FindDropView");
+            applyPosition = applyPosition ?? AccessTools.Method(typeof(DropView), "ApplySyncedWorldPosition");
+            foreach (GameSceneData scene in world.gameSceneDataList)
+            {
+                foreach (DropData drop in scene == null ? new List<DropData>() : scene.droppedItems)
+                {
+                    string id = drop == null || drop.UniqueId == null ? null : drop.UniqueId.Id;
+                    if (id == null || !wanted.TryGetValue(id, out Vector3 position))
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        // The game's own way to put a drop somewhere: data, transform and body, still.
+                        object view = findView == null ? null : findView.Invoke(null, new object[] { drop });
+                        if (view != null && applyPosition != null)
+                        {
+                            applyPosition.Invoke(view, new object[] { position });
+                        }
+                        else
+                        {
+                            drop.Position = position;
+                        }
+                        positionsApplied++;
+                    }
+                    catch (Exception ex)
+                    {
+                        unresolved++;
+                        Detail("Could not move drop " + Shorten(id) + ": " + Plugin.Unwrap(ex).Message);
+                    }
+                }
+            }
+        }
+
         internal static void ReceiveSpawn(ulong senderClientId, FastBufferReader reader)
         {
             try
@@ -536,6 +725,9 @@ namespace GK2Coop
             harvests.Clear();
             mirrored.Clear();
             completedPickups.Clear();
+            lastSeen.Clear();
+            sentPositions.Clear();
+            resendAt = 0f;
         }
 
         private static void SpawnMirrored(string uniqueId, string itemId, int count, string worldId, Vector3 position)

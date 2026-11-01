@@ -14,7 +14,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$configPath = Join-Path $GamePath 'BepInEx\config\com.fabio.gk2coop.cfg'
+$configPath = Join-Path $GamePath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 $logPath = Join-Path $GamePath 'BepInEx\LogOutput.log'
 $report = [Collections.Generic.List[string]]::new()
 

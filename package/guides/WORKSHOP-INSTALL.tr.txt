@@ -71,5 +71,5 @@ Oyun klasöründeki BepInEx\plugins\GK2Coop klasörünü sil. BepInEx'i de kald�
 doorstop_config.ini, .doorstop_version ve changelog.txt dosyalarını da sil.
 INSTALL-GK2COOP.txt ve GK2Coop-Guides kılavuzları da silinebilir.
 
-Ayarlar: BepInEx\config\com.fabio.gk2coop.cfg
+Ayarlar: BepInEx\config\de.fredwuz.gk2coop.cfg
 Bu bir geliştirme sürümüdür. Önemli kayıtlarını yedekle.

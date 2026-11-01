@@ -1,4 +1,4 @@
-﻿Graveyard Keeper 2 Koop 0.65.4
+﻿Graveyard Keeper 2 Koop 0.65.6
 
 INSTALLATION
 1. Alle, die zusammen spielen, brauchen diese Mod in derselben Version.
@@ -60,5 +60,5 @@ keine andere Mod es nutzt), zusätzlich den Ordner BepInEx sowie winhttp.dll,
 doorstop_config.ini, .doorstop_version und changelog.txt löschen.
 Die Anleitungen INSTALL-GK2COOP.txt und GK2Coop-Guides können ebenfalls weg.
 
-Einstellungen: BepInEx\config\com.fabio.gk2coop.cfg
+Einstellungen: BepInEx\config\de.fredwuz.gk2coop.cfg
 Dies ist eine Entwicklungsversion. Sichere Spielstände, die dir wichtig sind.

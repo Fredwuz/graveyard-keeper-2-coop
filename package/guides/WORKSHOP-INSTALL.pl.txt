@@ -70,5 +70,5 @@ go inny mod), usuń również folder BepInEx, winhttp.dll, doorstop_config.ini,
 .doorstop_version i changelog.txt.
 Przewodniki INSTALL-GK2COOP.txt i GK2Coop-Guides też można usunąć.
 
-Ustawienia: BepInEx\config\com.fabio.gk2coop.cfg
+Ustawienia: BepInEx\config\de.fredwuz.gk2coop.cfg
 To wersja rozwojowa. Zrób kopię zapisów, na których ci zależy.

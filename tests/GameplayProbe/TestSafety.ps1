@@ -124,6 +124,18 @@ function Assert-TestInstall([string]$Path) {
     if (-not (Test-Path -LiteralPath (Join-Path $full 'GraveyardKeeper2.exe'))) { throw "No game copy at $full" }
 }
 
+# The game copies the Workshop mods a player subscribed to into BepInEx\plugins before plugins
+# load, through a patcher it installs in BepInEx\patchers while it runs. In a test copy that put
+# the Workshop's GK2Coop.dll over the build under test (found in the playground: one joiner ran
+# the Workshop's 0.65.7 without the fix being tested). Removed before every start.
+function Disable-GameWorkshopSync([string]$Path) {
+    Assert-TestInstall $Path
+    foreach ($folder in 'BepInEx\patchers\GK2.WorkshopSync', 'BepInEx\GK2.WorkshopSync') {
+        $full = Join-Path $Path $folder
+        if (Test-Path -LiteralPath $full) { Remove-Item -LiteralPath $full -Recurse -Force }
+    }
+}
+
 function Get-TestGameProcesses([string[]]$Paths) {
     $roots = $Paths | ForEach-Object { [IO.Path]::GetFullPath($_).TrimEnd('\') + '\' }
     @(Get-Process -Name GraveyardKeeper2 -ErrorAction SilentlyContinue | Where-Object {
@@ -133,7 +145,7 @@ function Get-TestGameProcesses([string[]]$Paths) {
 }
 
 function Start-TestGame([string]$Path) {
-    Assert-TestInstall $Path
+    Disable-GameWorkshopSync $Path
     $env:GK2COOP_TEST_QUIET = '1'
     $exe = Join-Path $Path 'GraveyardKeeper2.exe'
     $id = [GK2CoopTestWindowGuard]::StartOnPrivateDesktop($exe, $Path, '-screen-fullscreen 0 -screen-width 640 -screen-height 360 -window-mode windowed')

@@ -71,5 +71,5 @@ well (if no other mod uses it), also delete the BepInEx folder, winhttp.dll,
 doorstop_config.ini, .doorstop_version and changelog.txt.
 The guides INSTALL-GK2COOP.txt and GK2Coop-Guides can go too.
 
-Settings: BepInEx\config\com.fabio.gk2coop.cfg
+Settings: BepInEx\config\de.fredwuz.gk2coop.cfg
 This is a development build. Back up saves you care about.

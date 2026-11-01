@@ -32,11 +32,14 @@ namespace GK2Coop
 
             TryPatch(harmony, "PlayerPhysicalBody", "InitNetworkPlayer", null, nameof(InitNetworkPlayerPostfix));
             TryPatch(harmony, "MainGame", "SpawnPlayer", null, nameof(SpawnPlayerPostfix));
+            // Always, not only with telemetry: it gives forwarded moves to the right body. Installed
+            // only with DetailedLogs, players with three or more saw the host's body jump between
+            // the host and the other joiners (found in play; the tests run with DetailedLogs on).
+            TryPatch(harmony, "CharMoveCommand", "Execute", nameof(CharMoveExecutePrefix), null);
             if (!enableTelemetry)
             {
                 return;
             }
-            TryPatch(harmony, "CharMoveCommand", "Execute", nameof(CharMoveExecutePrefix), null);
             TryPatch(harmony, "CommandFactory", "SerializeCommand", nameof(SerializeCommandPrefix), null);
             TryPatch(harmony, "CommandFactory", "DeserializeCommand", null, nameof(DeserializeCommandPostfix));
         }
@@ -428,7 +431,10 @@ namespace GK2Coop
                 bool forwarded = netcode != null && netcode.IsClient && !netcode.IsHost && playerId != (int)senderClientId;
                 bool resolved = !applied || CanResolve(gameSave, forwarded ? playerId : (int)senderClientId);
 
-                CoopDiagnostics.RecordMoveCommand(playerId, senderClientId, position, applied, resolved);
+                if (telemetry)
+                {
+                    CoopDiagnostics.RecordMoveCommand(playerId, senderClientId, position, applied, resolved);
+                }
                 if (applied && !resolved)
                 {
                     // Running the original here would throw inside GetClient.

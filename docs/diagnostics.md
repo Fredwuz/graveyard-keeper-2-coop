@@ -40,7 +40,8 @@ save wrote into the player's slot.
 copies, never players): Pause > Co-op > Test tools builds a test yard (chest, stations, autopsy
 table, graves with bodies, a garden bed, a working zombie), hands out a kit, starts scenes and
 sermons, teleports, sets the weather. English only. `[Testing] ContinueSlot` makes Continue open
-a given slot (the playground).
+a given slot (the playground) and presses it; `[Testing] AutoJoin` copies the world of the host at
+that address and joins, retried every 10 s until it gets in.
 
 ## Tests
 

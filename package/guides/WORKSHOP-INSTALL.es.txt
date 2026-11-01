@@ -71,5 +71,5 @@ Borra BepInEx\plugins\GK2Coop en la carpeta del juego. Para quitar también BepI
 doorstop_config.ini, .doorstop_version y changelog.txt.
 Las guías INSTALL-GK2COOP.txt y GK2Coop-Guides también se pueden borrar.
 
-Ajustes: BepInEx\config\com.fabio.gk2coop.cfg
+Ajustes: BepInEx\config\de.fredwuz.gk2coop.cfg
 Esta es una versión en desarrollo. Haz copia de las partidas que te importen.

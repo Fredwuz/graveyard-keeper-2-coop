@@ -39,7 +39,7 @@ $peers = @(
     [pscustomobject]@{ Name = 'client'; Path = $ClientPath; Mode = 'Connect'; Address = '127.0.0.1'; Player = 'LocalClient' }
 )
 
-function Config-Path([string]$Install) { Join-Path $Install 'BepInEx\config\com.fabio.gk2coop.cfg' }
+function Config-Path([string]$Install) { Join-Path $Install 'BepInEx\config\de.fredwuz.gk2coop.cfg' }
 function Probe-Path([string]$Install) { Join-Path $Install 'BepInEx\plugins\GameplayProbe.dll' }
 function Stop-Instances {
     try {
@@ -84,7 +84,7 @@ function Wait-World([string]$Peer, [int]$TimeoutSeconds = 300) {
 function Set-PeerConfig($Peer) {
     $path = Config-Path $Peer.Path
     if (-not (Test-Path -LiteralPath $path)) {
-        Copy-Item (Join-Path $projectRoot 'package\com.fabio.gk2coop.cfg') $path -Force
+        Copy-Item (Join-Path $projectRoot 'package\de.fredwuz.gk2coop.cfg') $path -Force
     }
     $config = Get-Content -LiteralPath $path -Raw
     $settings = @{

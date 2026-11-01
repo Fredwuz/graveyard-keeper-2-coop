@@ -19,7 +19,7 @@ namespace GK2Coop
         /// Bumped whenever the wire format of any GK2Coop message changes. Two builds with
         /// different values must not play together, even if the plugin version happens to match.
         /// </summary>
-        internal const int ProtocolVersion = 34;
+        internal const int ProtocolVersion = 35;
 
         /// <summary>Tells a client that another client exists, so it can create a body for it.</summary>
         internal const string PeerMessage = "GK2Coop.Peer.v1";
@@ -188,6 +188,7 @@ namespace GK2Coop
             messaging.RegisterNamedMessageHandler(CoopDropSync.PickupRequestMessage, CoopDropSync.ReceivePickupRequest);
             messaging.RegisterNamedMessageHandler(CoopDropSync.PickupResultMessage, CoopDropSync.ReceivePickupResult);
             messaging.RegisterNamedMessageHandler(CoopDropSync.MergeMessage, CoopDropSync.ReceiveMerge);
+            messaging.RegisterNamedMessageHandler(CoopDropSync.PositionMessage, CoopDropSync.ReceivePositions);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.RequestMessage, CoopContainerSync.ReceiveRequest);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.StateMessage, CoopContainerSync.ReceiveState);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.RichMessage, CoopContainerSync.ReceiveRich);
@@ -251,6 +252,7 @@ namespace GK2Coop
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.PickupRequestMessage);
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.PickupResultMessage);
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.MergeMessage);
+                messaging.UnregisterNamedMessageHandler(CoopDropSync.PositionMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.RequestMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.StateMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.RichMessage);
@@ -395,6 +397,7 @@ namespace GK2Coop
                     // After the welcome, so the client has registered its handlers and knows it
                     // was accepted before world state starts arriving.
                     CoopJoinSnapshot.SendTo(senderClientId);
+                    CoopDropSync.ResendPositions();
                     CoopCraftSync.SendAllTo(senderClientId);
                     CoopKnowledgeSync.SendAllTo(senderClientId);
                     CoopWorldResSync.SendAllTo(senderClientId);

@@ -49,6 +49,8 @@ save…"); the checker sees only literals.
 - Before starting: the mod is built (Release, against the first host copy) and copied to every
   copy (`-NoDeploy` skips both), the probe is built, the player's own saves are hashed and the
   game's registry preferences kept. Afterwards the preferences are restored and the saves checked.
+- Before every start of a test copy, the game's own Workshop sync (`BepInEx\patchers\GK2.WorkshopSync`)
+  is removed from it: it copies the Workshop's `GK2Coop.dll` over the build under test.
 - A run also fails on problems in the games' logs: a `[game/Exception]`, or a co-op warning or
   error saying "could not", "failed" or "Exception". Known game noise is listed in `$logNoise`.
 - Results: `testbed\GK2Coop-Artifacts\regress-<version>-<time>\summary.txt`.
@@ -86,7 +88,7 @@ performance baseline).
 | `tests/GameplayProbe/Verify-WorkshopUpdate.ps1` | The [Workshop update](workshop-updates.md) |
 | `tests/GameplayProbe/Verify-MultiPlayer.ps1` | Three or four players (clones `testbed\GK2Coop-LocalClient*`) |
 | `tests/vm/Verify-VmCoop.ps1` | Host on this PC, joiner in a Hyper-V VM, over a real network |
-| `tests/Start-Playground.ps1` | Opens host and joiner on the day-18 playground for testing by hand |
+| `tests/Start-Playground.ps1` | Opens host and joiner on the day-18 playground for testing by hand; they host and join by themselves; `-SecondJoiner` adds a third player (`testbed\GK2Coop-FullClient2`). Windowed 1280×720 |
 | `tests/Update-TestCopies.ps1` | Brings the test copies to the Steam install's game version |
 | `tests/Capture-Media.ps1` | Screenshots for GitHub and the Workshop (`scripts/Make-Media.py` crops them) |
 

@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = "$PSScriptRoot\..\.."
 $saveFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
-$config = Join-Path $HostPath 'BepInEx\config\com.fabio.gk2coop.cfg'
+$config = Join-Path $HostPath 'BepInEx\config\de.fredwuz.gk2coop.cfg'
 $probe = Join-Path $HostPath 'BepInEx\plugins\GameplayProbe.dll'
 $manifest = Join-Path $root 'artifacts\deployment-manifest.json'
 $stateFile = Join-Path $StatePath 'state.txt'

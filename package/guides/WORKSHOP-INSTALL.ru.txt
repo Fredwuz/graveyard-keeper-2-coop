@@ -69,5 +69,5 @@ T чат - F6 состояние - F7 имена - F10 пригласить др
 doorstop_config.ini, .doorstop_version и changelog.txt.
 Инструкции INSTALL-GK2COOP.txt и GK2Coop-Guides тоже можно удалить.
 
-Настройки: BepInEx\config\com.fabio.gk2coop.cfg
+Настройки: BepInEx\config\de.fredwuz.gk2coop.cfg
 Это версия в разработке. Сделай копию сохранений, которыми дорожишь.
