@@ -61,7 +61,10 @@ namespace GK2Coop
                 sguidType = Plugin.FindGameType("SGuid");
                 uniqueIdField = AccessTools.Field(wgoData, "uniqueId");
                 MethodInfo replace = AccessTools.Method(worldData, "ReplaceWgoData", new[] { wgoData, typeof(string) });
-                ConstructorInfo ctor = AccessTools.Constructor(wgoData, new[] { typeof(string), typeof(Vector3), typeof(string), typeof(string) });
+                // The constructor every other one ends in, which makes the random id: game 1.010
+                // added isTempObject to it; up to 1.007 it had four parameters.
+                ConstructorInfo ctor = AccessTools.Constructor(wgoData, new[] { typeof(string), typeof(Vector3), typeof(string), typeof(string), typeof(bool) })
+                    ?? AccessTools.Constructor(wgoData, new[] { typeof(string), typeof(Vector3), typeof(string), typeof(string) });
                 if (replace == null || ctor == null || uniqueIdField == null || sguidType == null)
                 {
                     log.LogWarning("Stable ids: WorldData.ReplaceWgoData or the WgoData constructor not found; replaced objects keep random ids.");
