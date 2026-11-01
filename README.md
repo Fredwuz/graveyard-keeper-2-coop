@@ -1,5 +1,9 @@
 # Graveyard Keeper 2 Co-op [BETA]
 
+> **NOTE:** This repository is a fork. The original author of this mod is
+> [fofofabio](https://github.com/fofofabio). The original repository was deleted, so this fork
+> continues the project. The mod keeps its MIT license (see [LICENSE](LICENSE)).
+
 ![Four players in one world: the graveyard, story scenes, sermons, chat, fights and the Co-op menu](media/highlights.gif)
 
 This mod adds co-op play to Graveyard Keeper 2 (Windows, Steam). Two to four players play in the
@@ -161,18 +165,22 @@ You need:
 
 - Windows
 - The .NET SDK (the project uses .NET Framework 4.7.2)
-- Graveyard Keeper 2
-- BepInEx 5.4.23.5 for Windows x64, extracted into the folder `artifacts\bepinex-5.4.23.5`
+- Graveyard Keeper 2 with BepInEx (this mod's zip installs it)
+- For the zip file of a release: BepInEx 5.4.23.5 for Windows x64, extracted into the folder
+  `artifacts\bepinex-5.4.23.5`
 
 Do these steps:
 
-1. Run `dotnet build src\GK2Coop\GK2Coop.csproj -c Release`.
-2. If the game is not in the default Steam folder, add `-p:GamePath=<game folder>`.
+1. If the game is not in the default Steam folder, create the file `dev.props` next to
+   `Directory.Build.props` with your game folder. `Directory.Build.props` shows how. The builds
+   and the scripts then use that folder.
+2. Run `dotnet build src\GK2Coop\GK2Coop.csproj -c Release`.
 3. To make the zip file for a release, run `scripts\Build-Package.ps1`.
 
-The folder `tests` contains the multiplayer tests. A test plugin (`tests\GameplayProbe`) controls
-two to four copies of the game on one PC. The script `tests\Run-Regression.ps1` runs the tests.
-The tests use copies of the game on drive D:.
+The folder `docs` explains how each feature works. The folder `tests` contains the multiplayer
+tests. A test plugin (`tests\GameplayProbe`) controls two to four copies of the game on one PC.
+The script `tests\Run-Regression.ps1` runs the tests. The tests use copies of the game in the
+folder `testbed` (git ignores it) and a test save (see `docs\testing.md`).
 
 ## License
 
