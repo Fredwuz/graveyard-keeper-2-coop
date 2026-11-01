@@ -35,6 +35,8 @@ namespace GK2Coop
         internal const string PickupResultMessage = "GK2Coop.DropPickupResult.v2";
         internal const string MergeMessage = "GK2Coop.DropMerge.v1";
         internal const string PositionMessage = "GK2Coop.DropPosition.v1";
+        internal const string CarryRequestMessage = "GK2Coop.DropCarryRequest.v1";
+        internal const string CarryResultMessage = "GK2Coop.DropCarryResult.v1";
 
         private static ManualLogSource log;
         private static int spawnsSent;
@@ -67,7 +69,7 @@ namespace GK2Coop
                    ", accepted=" + pickupAccepted + ", rejected=" + pickupRejected +
                    ", results applied=" + pickupResultsApplied + ", merges sent/applied=" +
                    mergesSent + "/" + mergesApplied + ", positions sent/applied=" + positionsSent + "/" + positionsApplied +
-                   ", unresolved=" + unresolved;
+                   ", carries asked/applied=" + carriesAsked + "/" + carriesApplied + ", unresolved=" + unresolved;
         }
 
         internal static void Install(Harmony harmony)
@@ -127,6 +129,29 @@ namespace GK2Coop
                 {
                     log.LogWarning("DropView.Merge not found; merged drops will not be replicated.");
                 }
+
+                // Each on its own: a game update that changed one turns off that part, not the drops.
+                try
+                {
+                    // Lifting a log or a body onto the head. ZombieDropInteractionHandler (bodies)
+                    // calls this one as its base.
+                    harmony.Patch(AccessTools.Method(Plugin.FindGameType("BigDropInteractionHandler"), "Interact"),
+                        prefix: new HarmonyMethod(AccessTools.Method(typeof(CoopDropSync), nameof(CarryPrefix))));
+                }
+                catch (Exception ex)
+                {
+                    log.LogWarning("Carried logs will not be shared: " + Plugin.Unwrap(ex).Message);
+                }
+                try
+                {
+                    // A player walking into a drop: whose player it was says where it comes to rest.
+                    harmony.Patch(AccessTools.Method(dropView, "DoKick", new[] { typeof(Transform), typeof(bool) }),
+                        postfix: new HarmonyMethod(AccessTools.Method(typeof(CoopDropSync), nameof(KickPostfix))));
+                }
+                catch (Exception ex)
+                {
+                    log.LogWarning("The host's place of a pushed drop wins: " + Plugin.Unwrap(ex).Message);
+                }
                 log.LogInfo("Patched drops for sharing (spawn plus host-authoritative pickup).");
             }
             catch (Exception ex)
@@ -181,6 +206,9 @@ namespace GK2Coop
                     Broadcast(netcode, SpawnMessage, writer);
                 }
                 spawnsSent++;
+                // Made or put down here: this machine says where it comes to rest.
+                MovedHere(uniqueId);
+                carried.Remove(uniqueId);
             }
             catch (Exception ex)
             {
@@ -365,27 +393,86 @@ namespace GK2Coop
         private static MethodInfo findView;
         private static MethodInfo applyPosition;
 
+        // Who says where a drop lies: the machine whose player moved it last. The host showed only
+        // its own places, so a log a joiner pushed or put down jumped back to where the host had it
+        // (found in play). A drop no player moved (it fell or slid by itself) is the host's.
+        private const float MovedElsewhereSeconds = 10f;
+        private static readonly HashSet<string> movedHere = new HashSet<string>();
+        private static readonly Dictionary<string, float> movedElsewhere = new Dictionary<string, float>();
+
+        private static void MovedHere(string id)
+        {
+            movedHere.Add(id);
+            movedElsewhere.Remove(id);
+        }
+
+        private static void MovedElsewhere(string id)
+        {
+            movedHere.Remove(id);
+            movedElsewhere[id] = Time.unscaledTime + MovedElsewhereSeconds;
+        }
+
         /// <summary>
-        /// The host, once a second: the drops that came to rest somewhere other than the joiners were
-        /// last told. Every machine throws a new drop out with its own random offset and pushes it
-        /// with its own physics (players walk into logs), so a log lay in a different place on each
-        /// screen (found in the playground with three players). The host's place is the one place.
+        /// A player walked into a drop (or a full bag pushed it away). Another player's body moves
+        /// the drop here too; their own machine says where it ends up.
+        /// </summary>
+        private static void KickPostfix(DropView __instance, Transform __0)
+        {
+            Transform collisionSourceTransform = __0;
+            if (!Enabled || applyingRemote || collisionSourceTransform == null || !SessionIsLive(NetworkManager.Singleton))
+            {
+                return;
+            }
+            try
+            {
+                string id = __instance.Data?.UniqueId?.Id;
+                if (string.IsNullOrEmpty(id))
+                {
+                    return;
+                }
+                PlayerPhysicalBody body = collisionSourceTransform.GetComponentInParent<PlayerPhysicalBody>();
+                object player = body == null ? null : CoopDiagnostics.GetMember(body, "playerData");
+                if (ReferenceEquals(player, MainGame.PlayerData) || collisionSourceTransform == MainGame.PlayerController?.transform)
+                {
+                    MovedHere(id);
+                }
+                else if (player != null)
+                {
+                    MovedElsewhere(id);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Called from the game's physics: never throw into it.
+                unresolved++;
+                Detail("Could not note who pushed a drop: " + Plugin.Unwrap(ex).Message);
+            }
+        }
+
+        /// <summary>
+        /// Once a second, every player: the drops that came to rest somewhere other than the others
+        /// were last told, of those this machine has the say over. Every machine throws a new drop
+        /// out with its own random offset and pushes it with its own physics (players walk into
+        /// logs), so a log lay in a different place on each screen (found in the playground with
+        /// three players). A joiner sends its places to the host, which passes them on.
         /// </summary>
         internal static void Tick()
         {
             NetworkManager netcode = NetworkManager.Singleton;
-            if (!Enabled || positionsBroken || !SessionIsLive(netcode) || !netcode.IsHost || netcode.ConnectedClientsIds.Count < 2 || !InWorld())
+            if (!Enabled || positionsBroken || !SessionIsLive(netcode) || (netcode.IsHost && netcode.ConnectedClientsIds.Count < 2) || !InWorld())
             {
                 return;
             }
-            if (resendAt > 0f && Time.unscaledTime >= resendAt)
+            bool all = false;
+            if (netcode.IsHost && resendAt > 0f && Time.unscaledTime >= resendAt)
             {
                 resendAt = 0f;
                 sentPositions.Clear();
+                all = true;
             }
             try
             {
-                SendRestingPositions(netcode);
+                SendRestingPositions(netcode, all);
             }
             catch (Exception ex)
             {
@@ -404,13 +491,15 @@ namespace GK2Coop
             resendAt = Time.unscaledTime + 5f;
         }
 
-        private static void SendRestingPositions(NetworkManager netcode)
+        /// <param name="all">The host after a join: every drop, also those another player moved last.</param>
+        private static void SendRestingPositions(NetworkManager netcode, bool all)
         {
             WorldData world = MainGame.Instance?.GameSave?.worldData;
             if (world == null)
             {
                 return;
             }
+            float now = Time.unscaledTime;
             List<string> loaded = world.LoadedScenes;
             var seen = new Dictionary<string, Vector3>();
             var moved = new List<KeyValuePair<string, Vector3>>();
@@ -429,6 +518,12 @@ namespace GK2Coop
                     }
                     Vector3 position = drop.Position;
                     seen[id] = position;
+                    if (netcode.IsHost
+                        ? !all && movedElsewhere.TryGetValue(id, out float until) && now < until
+                        : !movedHere.Contains(id))
+                    {
+                        continue;
+                    }
                     // Still flying or sliding: wait until it lies still. A drop not sent before
                     // (new, or every drop after a join) is sent once it does.
                     if (!lastSeen.TryGetValue(id, out Vector3 before) || (before - position).sqrMagnitude > 0.0001f ||
@@ -448,28 +543,55 @@ namespace GK2Coop
                     sentPositions.Remove(gone);
                 }
             }
-            for (int first = 0; first < moved.Count; first += MaxPositionsPerMessage)
+            movedHere.RemoveWhere(id => !seen.ContainsKey(id));
+            foreach (string id in new List<string>(movedElsewhere.Keys))
             {
-                int count = Math.Min(MaxPositionsPerMessage, moved.Count - first);
+                if (!seen.ContainsKey(id) || now >= movedElsewhere[id])
+                {
+                    movedElsewhere.Remove(id);
+                }
+            }
+            SendPositions(netcode, moved, netcode.LocalClientId);
+        }
+
+        /// <summary>A joiner's places to the host; the host's to every joiner but <paramref name="except"/>.</summary>
+        private static void SendPositions(NetworkManager netcode, List<KeyValuePair<string, Vector3>> places, ulong except)
+        {
+            for (int first = 0; first < places.Count; first += MaxPositionsPerMessage)
+            {
+                int count = Math.Min(MaxPositionsPerMessage, places.Count - first);
                 using (var writer = new FastBufferWriter(1024, Allocator.Temp, 64 * 1024))
                 {
                     writer.WriteValueSafe(count);
                     for (int i = first; i < first + count; i++)
                     {
-                        writer.WriteValueSafe(new FixedString128Bytes(moved[i].Key));
-                        writer.WriteValueSafe(moved[i].Value);
+                        writer.WriteValueSafe(new FixedString128Bytes(places[i].Key));
+                        writer.WriteValueSafe(places[i].Value);
                     }
-                    Broadcast(netcode, PositionMessage, writer);
+                    if (!netcode.IsHost)
+                    {
+                        netcode.CustomMessagingManager.SendNamedMessage(
+                            PositionMessage, NetworkManager.ServerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                        continue;
+                    }
+                    foreach (ulong clientId in netcode.ConnectedClientsIds)
+                    {
+                        if (clientId != netcode.LocalClientId && clientId != except)
+                        {
+                            netcode.CustomMessagingManager.SendNamedMessage(
+                                PositionMessage, clientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                        }
+                    }
                 }
             }
-            positionsSent += moved.Count;
+            positionsSent += places.Count;
         }
 
         internal static void ReceivePositions(ulong senderClientId, FastBufferReader reader)
         {
             NetworkManager netcode = NetworkManager.Singleton;
-            if (!Enabled || positionsBroken || netcode == null || !netcode.IsListening || netcode.IsHost ||
-                senderClientId != NetworkManager.ServerClientId)
+            if (!Enabled || positionsBroken || netcode == null || !netcode.IsListening || senderClientId == netcode.LocalClientId ||
+                (!netcode.IsHost && senderClientId != NetworkManager.ServerClientId))
             {
                 return;
             }
@@ -491,6 +613,10 @@ namespace GK2Coop
                     }
                 }
                 ApplyPositions(wanted);
+                if (netcode.IsHost)
+                {
+                    SendPositions(netcode, new List<KeyValuePair<string, Vector3>>(wanted), senderClientId);
+                }
             }
             catch (Exception ex)
             {
@@ -529,6 +655,9 @@ namespace GK2Coop
                         {
                             drop.Position = position;
                         }
+                        // Not sent back from here: the sender has the say over it now.
+                        MovedElsewhere(id);
+                        sentPositions[id] = position;
                         positionsApplied++;
                     }
                     catch (Exception ex)
@@ -591,6 +720,9 @@ namespace GK2Coop
                     return;
                 }
                 SpawnMirrored(key, itemId.ToString(), count, worldId.ToString(), position);
+                // The machine that made or put it down says where it comes to rest.
+                MovedElsewhere(key);
+                carried.Remove(key);
 
                 // The host is the only route between two clients: a client broadcasts only to the
                 // server, so without this a drop one client creates never reaches the other.
@@ -727,6 +859,9 @@ namespace GK2Coop
             completedPickups.Clear();
             lastSeen.Clear();
             sentPositions.Clear();
+            movedHere.Clear();
+            movedElsewhere.Clear();
+            carried.Clear();
             resendAt = 0f;
         }
 
@@ -765,6 +900,186 @@ namespace GK2Coop
             {
                 applyingRemote = false;
             }
+        }
+
+        // ------------------------------------------------------------------ carrying (logs, bodies)
+
+        // Drops someone carries now: the host refuses a second lift of one it does not have.
+        private static readonly HashSet<string> carried = new HashSet<string>();
+        private static int carriesAsked;
+        private static int carriesApplied;
+
+        /// <summary>
+        /// Lifting a log or a body onto the head took the drop off the ground on one machine only.
+        /// The others kept it: two players could carry the same log, and a log put into a log holder
+        /// still lay on the ground for everyone else (found in play). The host decides, as for a
+        /// pickup.
+        /// </summary>
+        private static bool CarryPrefix(DropView ___drop, ref bool __result)
+        {
+            if (!Enabled || applyingRemote)
+            {
+                return true;
+            }
+            try
+            {
+                NetworkManager netcode = NetworkManager.Singleton;
+                DropData drop = ___drop == null ? null : ___drop.Data;
+                string id = drop == null || drop.DropType != DropType.Item ? null : drop.UniqueId?.Id;
+                if (!SessionIsLive(netcode) || string.IsNullOrEmpty(id))
+                {
+                    return true;
+                }
+                if (netcode.IsHost)
+                {
+                    // The game lifts it; the others take it off their ground.
+                    Carried(id);
+                    SendCarryResult(netcode, id, netcode.LocalClientId, true, drop.Id, drop.Count);
+                    return true;
+                }
+                using (var writer = new FastBufferWriter(160, Allocator.Temp))
+                {
+                    writer.WriteValueSafe(new FixedString128Bytes(id));
+                    netcode.CustomMessagingManager.SendNamedMessage(
+                        CarryRequestMessage, NetworkManager.ServerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                }
+                carriesAsked++;
+                // It goes onto the head when the host's answer comes.
+                __result = true;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // The game's own lift then, unshared, rather than no lifting at all.
+                log.LogWarning("Could not share a carried drop: " + Plugin.Unwrap(ex).Message);
+                return true;
+            }
+        }
+
+        internal static void ReceiveCarryRequest(ulong senderClientId, FastBufferReader reader)
+        {
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (!Enabled || netcode == null || !netcode.IsListening || !netcode.IsHost || senderClientId == netcode.LocalClientId)
+            {
+                return;
+            }
+            try
+            {
+                reader.ReadValueSafe(out FixedString128Bytes raw);
+                string id = raw.ToString();
+                DropData drop = FindDrop(id) as DropData;
+                // A drop the host does not have can lie in a scene the host has not loaded (it keeps
+                // those drops in a queue, without their ids): the joiner may carry it, unless it was
+                // taken already.
+                bool granted = drop != null
+                    ? !drop.IsRemoving
+                    : !carried.Contains(id) && !completedPickups.Contains(id);
+                if (granted)
+                {
+                    if (drop != null)
+                    {
+                        RemoveDrop(drop);
+                    }
+                    Carried(id);
+                }
+                carriesAsked++;
+                SendCarryResult(netcode, id, senderClientId, granted, drop?.Id, drop?.Count ?? 0);
+                Detail("Host " + (granted ? "let" : "did not let") + " client " + senderClientId + " carry drop " + Shorten(id) + ".");
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning("Could not read a carry request: " + Plugin.Unwrap(ex).Message);
+            }
+        }
+
+        /// <summary>To every joiner, the carrier included: who carries <paramref name="id"/> now.</summary>
+        private static void SendCarryResult(NetworkManager netcode, string id, ulong carrier, bool granted, string itemId, int count)
+        {
+            using (var writer = new FastBufferWriter(320, Allocator.Temp))
+            {
+                writer.WriteValueSafe(new FixedString128Bytes(id));
+                writer.WriteValueSafe(carrier);
+                writer.WriteValueSafe(granted);
+                writer.WriteValueSafe(new FixedString128Bytes(itemId ?? string.Empty));
+                writer.WriteValueSafe(count);
+                foreach (ulong clientId in netcode.ConnectedClientsIds)
+                {
+                    // The same channel as the drops: one put down again comes after its lift.
+                    if (clientId != netcode.LocalClientId && (granted || clientId == carrier))
+                    {
+                        netcode.CustomMessagingManager.SendNamedMessage(
+                            CarryResultMessage, clientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                    }
+                }
+            }
+        }
+
+        internal static void ReceiveCarryResult(ulong senderClientId, FastBufferReader reader)
+        {
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (!Enabled || netcode == null || !netcode.IsListening || netcode.IsHost || senderClientId != NetworkManager.ServerClientId)
+            {
+                return;
+            }
+            try
+            {
+                reader.ReadValueSafe(out FixedString128Bytes raw);
+                reader.ReadValueSafe(out ulong carrier);
+                reader.ReadValueSafe(out bool granted);
+                reader.ReadValueSafe(out FixedString128Bytes itemId);
+                reader.ReadValueSafe(out int count);
+                string id = raw.ToString();
+                if (!granted)
+                {
+                    // Someone else lifted it first; their lift takes it off this ground too.
+                    Detail("Host did not let us carry drop " + Shorten(id) + ".");
+                    return;
+                }
+                DropData drop = FindDrop(id) as DropData;
+                Item item = drop?.Item;
+                if (drop != null)
+                {
+                    RemoveDrop(drop);
+                }
+                Carried(id);
+                if (carrier == netcode.LocalClientId)
+                {
+                    if (item == null && itemId.Length > 0 && count > 0 && count <= 9999)
+                    {
+                        item = new Item(itemId.ToString(), count);
+                        ForceItemGuid(item, id);
+                    }
+                    if (item == null)
+                    {
+                        unresolved++;
+                        log.LogWarning("Carry: drop " + Shorten(id) + " was granted but is gone here and the host did not know it.");
+                        return;
+                    }
+                    // Not as a remote change: a full head puts the log carried before down, and
+                    // that drop is shared like any other.
+                    MainGame.PlayerData.AddOverheadItem(item);
+                }
+                carriesApplied++;
+            }
+            catch (Exception ex)
+            {
+                unresolved++;
+                log.LogWarning("Could not apply a carry result: " + Plugin.Unwrap(ex).Message);
+            }
+        }
+
+        /// <summary>
+        /// A drop went onto someone's head. Put down again it comes back under the same id, and
+        /// must then be made anew everywhere and its place sent anew.
+        /// </summary>
+        private static void Carried(string id)
+        {
+            carried.Add(id);
+            mirrored.Remove(id);
+            completedPickups.Remove(id);
+            movedHere.Remove(id);
+            movedElsewhere.Remove(id);
+            sentPositions.Remove(id);
         }
 
         // ------------------------------------------------------------------ pickup authority

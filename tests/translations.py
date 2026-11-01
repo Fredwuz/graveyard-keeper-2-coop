@@ -357,6 +357,9 @@ row("{0} joined.",
 row("{0} left.",
     "{0} a quitté la partie.", "{0} se ha ido.", "{0} saiu.", "{0} opuścił(a) grę.", "{0} выходит из игры.", "{0} ayrıldı.",
     "{0}が退出しました。", "{0} 离开了游戏。", "{0} 님이 나갔습니다.")
+row("{0} is loading the world…",
+    "{0} charge le monde…", "{0} está cargando el mundo…", "{0} está carregando o mundo…", "{0} wczytuje świat…",
+    "{0} загружает мир…", "{0} dünyayı yüklüyor…", "{0}がワールドを読み込んでいます…", "{0} 正在加载世界…", "{0} 님이 월드를 불러오는 중입니다…")
 row("{0} could not join: they have co-op mod {1}, you have {2}. You both need the same version.",
     "{0} n'a pas pu rejoindre : il a le mod coop {1}, tu as {2}. Il vous faut la même version.",
     "{0} no pudo unirse: tiene el mod cooperativo {1} y tú el {2}. Necesitáis la misma versión.",

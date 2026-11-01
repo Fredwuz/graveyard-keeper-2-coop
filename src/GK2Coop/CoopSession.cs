@@ -19,7 +19,7 @@ namespace GK2Coop
         /// Bumped whenever the wire format of any GK2Coop message changes. Two builds with
         /// different values must not play together, even if the plugin version happens to match.
         /// </summary>
-        internal const int ProtocolVersion = 35;
+        internal const int ProtocolVersion = 36;
 
         /// <summary>Tells a client that another client exists, so it can create a body for it.</summary>
         internal const string PeerMessage = "GK2Coop.Peer.v1";
@@ -189,6 +189,8 @@ namespace GK2Coop
             messaging.RegisterNamedMessageHandler(CoopDropSync.PickupResultMessage, CoopDropSync.ReceivePickupResult);
             messaging.RegisterNamedMessageHandler(CoopDropSync.MergeMessage, CoopDropSync.ReceiveMerge);
             messaging.RegisterNamedMessageHandler(CoopDropSync.PositionMessage, CoopDropSync.ReceivePositions);
+            messaging.RegisterNamedMessageHandler(CoopDropSync.CarryRequestMessage, CoopDropSync.ReceiveCarryRequest);
+            messaging.RegisterNamedMessageHandler(CoopDropSync.CarryResultMessage, CoopDropSync.ReceiveCarryResult);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.RequestMessage, CoopContainerSync.ReceiveRequest);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.StateMessage, CoopContainerSync.ReceiveState);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.RichMessage, CoopContainerSync.ReceiveRich);
@@ -253,6 +255,8 @@ namespace GK2Coop
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.PickupResultMessage);
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.MergeMessage);
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.PositionMessage);
+                messaging.UnregisterNamedMessageHandler(CoopDropSync.CarryRequestMessage);
+                messaging.UnregisterNamedMessageHandler(CoopDropSync.CarryResultMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.RequestMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.StateMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.RichMessage);
@@ -494,7 +498,7 @@ namespace GK2Coop
         /// joiners come and go, so without this, with three or four players, the one who left stayed
         /// standing on the others' screens — and a second body appeared when they came back.
         /// </summary>
-        internal static void AnnouncePeerLeft(ulong leftClientId)
+        internal static void AnnouncePeerLeft(ulong leftClientId, string name, bool loading)
         {
             NetworkManager netcode = NetworkManager.Singleton;
             if (netcode == null || !netcode.IsHost || netcode.CustomMessagingManager == null)
@@ -507,9 +511,12 @@ namespace GK2Coop
                 {
                     continue;
                 }
-                using (var writer = new FastBufferWriter(16, Allocator.Temp))
+                using (var writer = new FastBufferWriter(96, Allocator.Temp))
                 {
                     writer.WriteValueSafe((int)leftClientId);
+                    // The joiners never met a friend who was only copying the world: the host names them.
+                    writer.WriteValueSafe(new FixedString64Bytes(name ?? string.Empty));
+                    writer.WriteValueSafe(loading);
                     netcode.CustomMessagingManager.SendNamedMessage(PeerLeftMessage, clientId, writer, NetworkDelivery.ReliableSequenced);
                 }
             }
@@ -525,15 +532,17 @@ namespace GK2Coop
             try
             {
                 reader.ReadValueSafe(out int leftClientId);
+                reader.ReadValueSafe(out FixedString64Bytes hostsName);
+                reader.ReadValueSafe(out bool loading);
                 if (leftClientId <= 0 || (ulong)leftClientId == netcode.LocalClientId)
                 {
                     return;
                 }
-                string name = NameFor((ulong)leftClientId);
+                string name = hostsName.Length > 0 ? hostsName.ToString() : NameFor((ulong)leftClientId);
                 int bodies = CoopWatchdog.RemovePeer((ulong)leftClientId);
                 ForgetPeer((ulong)leftClientId);
                 CoopSceneSync.Forget((ulong)leftClientId);
-                CoopStatus.Announce(L.F("{0} left.", name));
+                CoopStatus.Announce(loading ? L.F("{0} is loading the world…", name) : L.F("{0} left.", name));
                 log.LogInfo("Peer " + name + " (client " + leftClientId + ") left; removed their record and " + bodies + " body/bodies.");
             }
             catch (Exception ex)

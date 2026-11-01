@@ -17,6 +17,9 @@ mod is reset in one place.
   from this list, so nobody can speak as someone else.
 - **Third and fourth players.** Each joiner builds records only for itself and the host, so the
   host introduces joiners to each other (`Peer`) and tells them when one leaves (`PeerLeft`).
+  A friend who only copied the world ([joining](joining.md)) sends their name with the request;
+  when the copy is complete and they go to open it, everyone reads "<name> is loading the
+  world…" instead of "left", then "<name> joined." when they connect again.
   [CoopHostRelay.cs](../src/GK2Coop/CoopHostRelay.cs) forwards a joiner's game commands
   (movement and the like) to the other joiners; the game itself dropped them.
 - **Clock.** Every 5 s the host sends its day and time of day (`Clock`, unreliable). A joiner
@@ -58,7 +61,7 @@ mod is reset in one place.
 | `GK2Coop.Hello.v1` | joiner → host | protocol, version, name |
 | `GK2Coop.Welcome.v1` | host → joiner | protocol, accepted, host name, reason |
 | `GK2Coop.Peer.v1` | host → joiner | another player's client id and name |
-| `GK2Coop.PeerLeft.v1` | host → joiner | client id of a player who left |
+| `GK2Coop.PeerLeft.v1` | host → joiner | client id, name and "loading the world" of a player who left |
 | `GK2Coop.Clock.v1` | host → joiners | day, time of day |
 
 ## Settings

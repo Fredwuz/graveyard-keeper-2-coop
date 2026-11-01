@@ -77,7 +77,7 @@ You play in a copy of the world of the host. The mod does not change your own sa
 All players share the world:
 
 - Objects that the players cut, mine or harvest
-- Items on the ground
+- Items on the ground, and logs and bodies that players carry or push
 - Chests
 - Graves and the bodies in them
 - Quests

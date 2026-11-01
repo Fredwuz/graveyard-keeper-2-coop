@@ -109,6 +109,7 @@ namespace GK2Coop
                 // Announcements
                 ["{0} joined."] = "{0} ist beigetreten.",
                 ["{0} left."] = "{0} hat das Spiel verlassen.",
+                ["{0} is loading the world…"] = "{0} lädt die Welt …",
                 ["{0} could not join: they have co-op mod {1}, you have {2}. You both need the same version."] =
                     "{0} konnte nicht beitreten: Koop-Mod {1} statt {2}. Ihr braucht beide dieselbe Version.",
                 ["You joined {0}'s game."] = "Du bist dem Spiel von {0} beigetreten.",

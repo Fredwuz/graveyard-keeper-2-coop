@@ -93,6 +93,7 @@ namespace GK2Coop
                 ["In {0}'s world"] = "W świecie gracza {0}",
                 ["{0} joined."] = "{0} dołączył(a).",
                 ["{0} left."] = "{0} opuścił(a) grę.",
+                ["{0} is loading the world…"] = "{0} wczytuje świat…",
                 ["{0} could not join: they have co-op mod {1}, you have {2}. You both need the same version."] = "{0} nie może dołączyć: ma mod co-op {1}, a ty {2}. Potrzebujecie tej samej wersji.",
                 ["You joined {0}'s game."] = "Dołączono do gry gracza {0}.",
                 ["The host turned you away. {0}"] = "Gospodarz odrzucił połączenie. {0}",

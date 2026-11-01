@@ -93,6 +93,7 @@ namespace GK2Coop
                 ["In {0}'s world"] = "{0} adlı oyuncunun dünyasında",
                 ["{0} joined."] = "{0} katıldı.",
                 ["{0} left."] = "{0} ayrıldı.",
+                ["{0} is loading the world…"] = "{0} dünyayı yüklüyor…",
                 ["{0} could not join: they have co-op mod {1}, you have {2}. You both need the same version."] = "{0} katılamadı: onda ortak oyun modu {1}, sende {2} var. İkinizde de aynı sürüm olmalı.",
                 ["You joined {0}'s game."] = "{0} adlı oyuncunun oyununa katıldın.",
                 ["The host turned you away. {0}"] = "Kurucu bağlantını reddetti. {0}",

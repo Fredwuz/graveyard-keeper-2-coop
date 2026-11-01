@@ -93,6 +93,7 @@ namespace GK2Coop
                 ["In {0}'s world"] = "{0}의 세계",
                 ["{0} joined."] = "{0} 님이 참가했습니다.",
                 ["{0} left."] = "{0} 님이 나갔습니다.",
+                ["{0} is loading the world…"] = "{0} 님이 월드를 불러오는 중입니다…",
                 ["{0} could not join: they have co-op mod {1}, you have {2}. You both need the same version."] = "{0} 님은 참가할 수 없습니다. 상대의 협동 모드는 {1}, 내 모드는 {2}입니다. 같은 버전이 필요합니다.",
                 ["You joined {0}'s game."] = "{0}의 게임에 참가했습니다.",
                 ["The host turned you away. {0}"] = "호스트가 연결을 거부했습니다. {0}",

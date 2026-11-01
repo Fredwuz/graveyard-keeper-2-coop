@@ -10,7 +10,7 @@ Continue. The joiner's own saves are never changed.
    `CoopMenu.CopyAndJoin`: it sets `StartupMode = Connect` and starts
    `CoopSaveBootstrap.Begin`, which connects while the joiner is still on the main menu. The
    normal handshake is held back (`CoopSession.SuppressHello`) for this connection.
-2. **Request.** The joiner sends `BootstrapRequest` with its protocol number. The host refuses a
+2. **Request.** The joiner sends `BootstrapRequest` with its protocol number and name. The host refuses a
    different protocol, a world without a save slot, or a second transfer while one runs
    (`BootstrapError`, shown in the joiner's language by `Explain`).
 3. **The live world, not the last save.** The host serializes its loaded world in memory with
@@ -55,7 +55,7 @@ Continue. The joiner's own saves are never changed.
 
 | Name | Direction | Content |
 | --- | --- | --- |
-| `GK2Coop.BootstrapRequest.v1` | joiner → host | protocol |
+| `GK2Coop.BootstrapRequest.v1` | joiner → host | protocol, name |
 | `GK2Coop.BootstrapMeta.v1` | host → joiner | transfer id, sizes, SHA-256, slot `.info` |
 | `GK2Coop.BootstrapChunk.v1` | host → joiner | transfer id, index, bytes |
 | `GK2Coop.BootstrapAck.v1` | joiner → host | transfer id, index |

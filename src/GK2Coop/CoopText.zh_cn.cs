@@ -93,6 +93,7 @@ namespace GK2Coop
                 ["In {0}'s world"] = "在 {0} 的世界",
                 ["{0} joined."] = "{0} 加入了游戏。",
                 ["{0} left."] = "{0} 离开了游戏。",
+                ["{0} is loading the world…"] = "{0} 正在加载世界…",
                 ["{0} could not join: they have co-op mod {1}, you have {2}. You both need the same version."] = "{0} 无法加入：对方的联机模组是 {1}，你的是 {2}。你们需要相同的版本。",
                 ["You joined {0}'s game."] = "你加入了 {0} 的游戏。",
                 ["The host turned you away. {0}"] = "房主拒绝了你的连接。{0}",

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -59,6 +60,9 @@ namespace GK2Coop
         private static string importedSlot;
         private static Outbound outbound;
         private static float receivedStartedAt;
+        // The host: the names of the joiners connected to copy the world, and who has it all.
+        private static readonly Dictionary<ulong, string> downloaders = new Dictionary<ulong, string>();
+        private static readonly HashSet<ulong> downloaded = new HashSet<ulong>();
 
         private sealed class Outbound
         {
@@ -83,6 +87,26 @@ namespace GK2Coop
         private const int ChunksInFlight = 16;
 
         internal static void Init(ManualLogSource source) { log = source; }
+
+        /// <summary>
+        /// The host: a client that connected to copy the world went away. True with its name;
+        /// <paramref name="loading"/> when it had the whole world, so it is opening it now and
+        /// connects again (not "left").
+        /// </summary>
+        internal static bool TakeDownloader(ulong clientId, out string name, out bool loading)
+        {
+            loading = downloaded.Remove(clientId);
+            bool known = downloaders.TryGetValue(clientId, out name);
+            downloaders.Remove(clientId);
+            return known;
+        }
+
+        /// <summary>At a session's end: client ids start again at 1 in the next one.</summary>
+        internal static void ForgetDownloaders()
+        {
+            downloaders.Clear();
+            downloaded.Clear();
+        }
 
         private static readonly Regex WorldCopyName = new Regex(@"^GK2Coop_[0-9a-f]{16}(_backup_\d+)?$");
         // Slots of the mod's tests and playground (on the test copies' machine they share this
@@ -336,9 +360,10 @@ namespace GK2Coop
                     if (Time.unscaledTime - lastRequest >= 3f)
                     {
                         CoopSession.EnsureHandlers();
-                        using (var writer = new FastBufferWriter(8, Allocator.Temp))
+                        using (var writer = new FastBufferWriter(80, Allocator.Temp))
                         {
                             writer.WriteValueSafe(CoopSession.ProtocolVersion);
+                            writer.WriteValueSafe(new FixedString64Bytes(CoopSession.LocalName));
                             netcode.CustomMessagingManager.SendNamedMessage(RequestMessage,
                                 NetworkManager.ServerClientId, writer, NetworkDelivery.Reliable);
                         }
@@ -415,6 +440,11 @@ namespace GK2Coop
             try
             {
                 reader.ReadValueSafe(out int protocol);
+                // The name, so that the host can say who went away: this connection sends no
+                // handshake, and the host showed "Player 1 left." when a friend's download ended.
+                FixedString64Bytes name = default;
+                if (reader.Position < reader.Length) reader.ReadValueSafe(out name);
+                if (name.Length > 0) downloaders[sender] = name.ToString();
                 // The joiner shows this in its own language with both versions (Explain); older joiners show it as it is.
                 if (protocol != CoopSession.ProtocolVersion) throw new InvalidOperationException("Both players need the same co-op mod version. The host has " + Plugin.Version + ".");
                 if (outbound != null && outbound.ClientId == sender)
@@ -630,6 +660,9 @@ namespace GK2Coop
                 transfer.Acked++;
                 transfer.LastProgress = Time.unscaledTime;
                 if (transfer.NextChunk < transfer.Acked) transfer.NextChunk = transfer.Acked;
+                // Noted here, not when the transfer is tidied up: the joiner disconnects right after
+                // its last confirmation, often before the host's next frame.
+                if ((long)transfer.Acked * ChunkSize >= transfer.Compressed.Length) downloaded.Add(sender);
             }
         }
 

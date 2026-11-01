@@ -1401,11 +1401,15 @@ namespace GK2Coop
             Type lobbyType = RequireType("LobbyHelper");
             FieldInfo clientsField = lobbyType.GetField("connectedClients", BindingFlags.Static | BindingFlags.NonPublic);
             (clientsField?.GetValue(null) as System.Collections.IDictionary)?.Remove(clientId);
-            CoopSession.AnnouncePeerLeft(clientId);
+            // A friend who copied the world goes away and opens it, then connects again.
+            string name = CoopSaveBootstrap.TakeDownloader(clientId, out string downloaderName, out bool loading) && !CoopSession.KnowsName(clientId)
+                ? downloaderName
+                : CoopSession.NameFor(clientId);
+            CoopSession.AnnouncePeerLeft(clientId, name, loading);
             CoopSession.ForgetPeer(clientId);
             CoopPlayerProfiles.ForgetClient(clientId);
             CoopSceneSync.Forget(clientId);
-            CoopStatus.Announce(L.F("{0} left.", CoopSession.NameFor(clientId)));
+            CoopStatus.Announce(loading ? L.F("{0} is loading the world…", name) : L.F("{0} left.", name));
             LogSource.LogInfo($"Cleaned up disconnected client {clientId}; remaining remote records={clientPlayers?.Count ?? 0}.");
             CancelInvoke(nameof(LogSnapshot));
             Invoke(nameof(LogSnapshot), 1f);
