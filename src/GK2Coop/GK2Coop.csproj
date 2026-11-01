@@ -6,12 +6,11 @@
     <AssemblyName>GK2Coop</AssemblyName>
     <RootNamespace>GK2Coop</RootNamespace>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <!-- Keep in step with Plugin.Version so a deployed DLL can be identified without hashing. -->
+    <!-- Must equal Plugin.Version (CheckPluginVersion below fails the build otherwise): the
+         Workshop updater compares this DLL version, the handshake compares Plugin.Version. -->
     <Version>0.65.6</Version>
-    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2</GamePath>
     <GameDataName Condition="'$(GameDataName)' == '' and Exists('$(GamePath)\GraveyardKeeper2_Data')">GraveyardKeeper2_Data</GameDataName>
     <GameDataName Condition="'$(GameDataName)' == '' and Exists('$(GamePath)\GraveyardKeeper2Demo_Data')">GraveyardKeeper2Demo_Data</GameDataName>
-    <BepInExPath Condition="'$(BepInExPath)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\bepinex-5.4.23.5</BepInExPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -104,4 +103,9 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+
+  <Target Name="CheckPluginVersion" BeforeTargets="CoreCompile">
+    <Error Condition="!$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)Plugin.cs').Contains('const string Version = &quot;$(Version)&quot;;'))"
+           Text="Plugin.Version in Plugin.cs must equal &lt;Version&gt;$(Version)&lt;/Version&gt; in GK2Coop.csproj." />
+  </Target>
 </Project>

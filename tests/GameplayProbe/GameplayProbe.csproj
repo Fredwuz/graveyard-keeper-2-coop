@@ -2,10 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2</GamePath>
     <GameDataName Condition="'$(GameDataName)' == '' and Exists('$(GamePath)\GraveyardKeeper2_Data')">GraveyardKeeper2_Data</GameDataName>
     <GameDataName Condition="'$(GameDataName)' == '' and Exists('$(GamePath)\GraveyardKeeper2Demo_Data')">GraveyardKeeper2Demo_Data</GameDataName>
-    <BepInExPath>C:\FF\graveyard-keeper-2-coop\artifacts\bepinex-5.4.23.5</BepInExPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="BepInEx"><HintPath>$(BepInExPath)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>

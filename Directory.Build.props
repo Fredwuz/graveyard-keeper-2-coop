@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Where the game is, for every build and script of this repository. The default is Steam's
+    default library. If the game is elsewhere, create dev.props next to this file (git ignores it):
+
+      <Project>
+        <PropertyGroup>
+          <GamePath>F:\SteamLibrary\steamapps\common\Graveyard Keeper 2</GamePath>
+        </PropertyGroup>
+      </Project>
+
+    The scripts read the value with: dotnet msbuild src\GK2Coop\GK2Coop.csproj -getProperty:GamePath
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)dev.props" Condition="Exists('$(MSBuildThisFileDirectory)dev.props')" />
+  <PropertyGroup>
+    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2</GamePath>
+    <!-- BepInEx's own DLLs: the staged distribution, else the BepInEx installed in the game. -->
+    <BepInExPath Condition="'$(BepInExPath)' == '' and Exists('$(MSBuildThisFileDirectory)artifacts\bepinex-5.4.23.5')">$(MSBuildThisFileDirectory)artifacts\bepinex-5.4.23.5</BepInExPath>
+    <BepInExPath Condition="'$(BepInExPath)' == ''">$(GamePath)</BepInExPath>
+  </PropertyGroup>
+</Project>
