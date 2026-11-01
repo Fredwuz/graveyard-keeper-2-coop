@@ -108,7 +108,6 @@ $config = Get-Content -LiteralPath $configPath -Raw
 $config = [regex]::Replace($config, '(?m)^Address\s*=.*$', "Address = $HostAddress")
 $config = [regex]::Replace($config, '(?m)^Port\s*=.*$', "Port = $Port")
 $config = [regex]::Replace($config, '(?m)^StartupMode\s*=.*$', 'StartupMode = Connect')
-$config = [regex]::Replace($config, '(?m)^MovementProbe\s*=.*$', 'MovementProbe = false')
 if ($PlayerName) {
     $config = [regex]::Replace($config, '(?m)^PlayerName\s*=.*$', "PlayerName = $PlayerName")
 }

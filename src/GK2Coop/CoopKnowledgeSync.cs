@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using BepInEx.Logging;
@@ -95,7 +94,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Knowledge sync: " + Inner(ex).Message);
+                log.LogWarning("Knowledge sync: " + Plugin.Unwrap(ex).Message);
                 nextCheck = UnityEngine.Time.unscaledTime + 30f;
             }
         }
@@ -123,7 +122,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Knowledge sync: could not send the host's knowledge to client " + clientId + ": " + Inner(ex).Message);
+                log.LogWarning("Knowledge sync: could not send the host's knowledge to client " + clientId + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -174,7 +173,7 @@ namespace GK2Coop
             {
                 text.Append(entry.Key).Append('\t').Append(entry.Value).Append('\n');
             }
-            byte[] compressed = Compress(Encoding.UTF8.GetBytes(text.ToString()));
+            byte[] compressed = Gzip.Compress(Encoding.UTF8.GetBytes(text.ToString()));
             using (var writer = new FastBufferWriter(16 + compressed.Length, Allocator.Temp))
             {
                 writer.WriteValueSafe(compressed.Length);
@@ -215,7 +214,7 @@ namespace GK2Coop
                 byte[] compressed = new byte[length];
                 reader.ReadBytesSafe(ref compressed, length);
                 var entries = new List<KeyValuePair<string, string>>();
-                foreach (string line in Encoding.UTF8.GetString(Decompress(compressed)).Split('\n'))
+                foreach (string line in Encoding.UTF8.GetString(Gzip.Decompress(compressed)).Split('\n'))
                 {
                     int tab = line.IndexOf('\t');
                     if (tab > 0)
@@ -247,7 +246,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Knowledge sync: could not apply knowledge from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Knowledge sync: could not apply knowledge from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -300,7 +299,7 @@ namespace GK2Coop
                 }
                 catch (Exception ex)
                 {
-                    log.LogWarning("Knowledge sync: could not add " + entry.Key + " '" + entry.Value + "': " + Inner(ex).Message);
+                    log.LogWarning("Knowledge sync: could not add " + entry.Key + " '" + entry.Value + "': " + Plugin.Unwrap(ex).Message);
                 }
             }
             return learned;
@@ -443,37 +442,6 @@ namespace GK2Coop
                 parts.Add(entries[i].Key + ":" + entries[i].Value);
             }
             return string.Join(", ", parts.ToArray()) + (entries.Count > 4 ? ", …" : string.Empty);
-        }
-
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                input.CopyTo(output);
-                return output.ToArray();
-            }
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

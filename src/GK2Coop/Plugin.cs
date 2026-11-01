@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -9,7 +7,6 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -28,7 +25,6 @@ namespace GK2Coop
         private ConfigEntry<int> defaultPort;
         private ConfigEntry<bool> autoInitialize;
         private ConfigEntry<string> startupMode;
-        private ConfigEntry<bool> movementProbe;
         private ConfigEntry<bool> unityLogBridge;
         private ConfigEntry<bool> detailedLogs;
         private ConfigEntry<bool> playerCensus;
@@ -94,7 +90,6 @@ namespace GK2Coop
         private static ConfigEntry<bool> measureNetworkVolume;
         private static ConfigEntry<int> connectRetries;
         private static ConfigEntry<float> connectRetrySeconds;
-        private static ConfigEntry<bool> applyReceivedWorld;
         private bool autoStartAttempted;
         private float mainSceneReadyAt = -1f;
         private Rect window = new Rect(20f, 20f, 620f, 510f);
@@ -113,36 +108,11 @@ namespace GK2Coop
         private Action[] secondTicks;
         private float[] secondTickDue;
         private string lastNetworkState;
-        private bool hostSaveSyncSent;
-        private float hostClientsReadyAt = -1f;
-        private bool hostStartSent;
         private bool clientIdentityFixed;
         private bool normalFlowNetworking;
-        private const string SaveChunkMessage = "GK2Coop.SaveChunk.v1";
-        private const string SaveAckMessage = "GK2Coop.SaveAck.v1";
-        private const string StartGameMessage = "GK2Coop.StartGame.v1";
-        private const string ClientStatusMessage = "GK2Coop.ClientStatus.v1";
-        private const int SaveChunkSize = 1024;
-        private bool chunkHandlerRegistered;
-        private byte[] outboundSave;
-        private int outboundTransferId;
-        private int outboundChunkIndex;
-        private ulong outboundClientId;
-        private bool outboundAwaitingAck;
-        private float outboundLastSendTime;
-        private byte[] inboundSave;
-        private bool[] inboundChunks;
-        private int inboundChunkCount;
-        private int inboundTransferId = -1;
-        private int lastCompletedTransferId = -1;
-        private float gameplaySceneLoadedAt = -1f;
-        private bool movementProbeApplied;
-        private bool movementProbeReported;
         private object attachedHostNetcode;
         private Delegate hostConnectedHandler;
         private Delegate hostDisconnectedHandler;
-        private float clientStartReceivedAt = -1f;
-        private int clientStatusStage;
 
         private ManualLogSource LogSource => Logger;
 
@@ -176,7 +146,6 @@ namespace GK2Coop
             maxPlayers = Config.Bind("Network", "MaxPlayers", 4, "Players in a session hosted over Steam, including you: 2, 3 or 4. Sets the size of the Steam lobby friends join.");
             nightPasses = Config.Bind("Network", "NightPasses", "Everyone", "When you host: when the night passes. Everyone: only when every player sleeps. Host: when you sleep; the others stay awake and their clock jumps ahead with yours.");
             transportMode = Config.Bind("Network", "Transport", "IP", "IP: the game's own UDP connection (port forwarding or VPN for internet play). Steam: Steam's networking — join a Steam friend by their SteamID (address steam:<id>) through Valve's relay, no port forwarding; plain addresses still work through Steam's sockets. Falls back to IP when Steam is not running.");
-            movementProbe = Config.Bind("Diagnostics", "MovementProbe", false, "Move the guest 0.75 units after loading and log both peers' player-data positions.");
             detailedLogs = Config.Bind("Diagnostics", "DetailedLogs", false, "Write the detailed logs of the switches below (player census, command telemetry, network volume, drop trace, the game's informational messages, the joiners' logs on the host). Off: only the switches' errors and the usual messages. The detailed logs cost frame time; turn them on only to look into a problem.");
             unityLogBridge = Config.Bind("Diagnostics", "UnityLogBridge", true, "Forward the game's own errors and networking messages into the BepInEx log.");
             playerCensus = Config.Bind("Diagnostics", "PlayerCensus", true, "Log the component graph, ownership, and position of every player body when it changes.");
@@ -225,7 +194,6 @@ namespace GK2Coop
             autoStartNewGame = Config.Bind("Testing", "AutoStartNewGame", false, "Automation only: press New Game by itself once the main menu is up, so a two-instance test can run unattended. Invokes exactly what the menu button invokes.");
             autoStartSkipIntro = Config.Bind("Testing", "AutoStartSkipIntro", true, "With AutoStartNewGame, pass the game's own skipMainScene flag so the intro cinematic is bypassed. The intro waits for input, which an unattended run cannot provide.");
             relaxStartupGate = Config.Bind("Testing", "RelaxStartupGate", false, "Automation only: attach networking as soon as the world is in game with an active body, without waiting for player control. The intro cinematic takes control until a key is pressed, which an unattended run cannot do.");
-            applyReceivedWorld = Config.Bind("Testing", "ApplyReceivedWorld", false, "Phase 5 research, legacy startup mode only: apply the host's actual world on the client instead of rebuilding a fresh baseline. It has no effect in the normal menu/intro flow, which never transfers a save at all — both peers start their own new game and the mod reconciles them.");
             relayLogToHost = Config.Bind("Session", "RelayLogToHost", true, "Stream this machine's plugin log to the host when running as a client, so one log file holds both sides of a test.");
             clockSync = Config.Bind("Session", "ClockSync", true, "Let the host's in-game clock correct the client's. One in-game day is five real minutes, so drift accumulates quickly.");
             rebindAfterClientLeaves = Config.Bind("Session", "RebindAfterClientLeaves", true, "Host only. Refresh the network socket a second after a player leaves, so a player whose game crashed can rejoin. Works around a receive-buffer leak in the game's network library; turn off only to diagnose connection problems.");
@@ -480,13 +448,6 @@ namespace GK2Coop
             CoopSession.UnregisterHandlers();
             CoopLogRelay.Shutdown();
             DetachHostCallbacks();
-            if (chunkHandlerRegistered && NetworkManager.Singleton != null)
-            {
-                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(SaveChunkMessage);
-                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(SaveAckMessage);
-                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(StartGameMessage);
-                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(ClientStatusMessage);
-            }
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -495,10 +456,6 @@ namespace GK2Coop
             if (scene.name == "MainScene")
             {
                 mainSceneReadyAt = Time.unscaledTime;
-            }
-            if (scene.name == "RuinedTemple")
-            {
-                gameplaySceneLoadedAt = Time.unscaledTime;
             }
             CancelInvoke(nameof(LogSnapshot));
             Invoke(nameof(LogSnapshot), 2f);
@@ -537,8 +494,8 @@ namespace GK2Coop
             try
             {
                 return "scene " + SceneManager.GetActiveScene().name + "; LazyNetwork initialized: " + IsNativeInitialized() + "; " +
-                       DescribeMemberValues(GetStaticMember(FindType("Unity.Netcode.NetworkManager"), "Singleton"), "Netcode", "IsHost", "IsClient", "IsListening", "LocalClientId") + "; " +
-                       DescribeMemberValues(GetStaticMember(FindType("MainGame"), "Instance"), "Main game", "gameState", "IsGamePaused");
+                       DescribeMemberValues(CoopDiagnostics.GetStatic(FindGameType("Unity.Netcode.NetworkManager"), "Singleton"), "Netcode", "IsHost", "IsClient", "IsListening", "LocalClientId") + "; " +
+                       DescribeMemberValues(CoopDiagnostics.GetStatic(FindGameType("MainGame"), "Instance"), "Main game", "gameState", "IsGamePaused");
             }
             catch (Exception ex)
             {
@@ -668,16 +625,6 @@ namespace GK2Coop
 
             RunSecondTicks();
             CoopPlayerContext.VerifyNotLeaked();
-
-            try
-            {
-                PumpSaveTransfer();
-            }
-            catch (Exception ex)
-            {
-                LogSource.LogError("Chunked save transfer pump failed: " + ex);
-                outboundSave = null;
-            }
         }
 
         /// <summary>
@@ -697,7 +644,6 @@ namespace GK2Coop
                     CoopVendorSync.Tick, CoopKnowledgeSync.Tick, CoopSceneSync.Tick, CoopWorldResSync.Tick,
                     CoopSharedGems.Tick, CoopWeatherSync.Tick, CoopSteamLobby.Tick, CoopLogRelay.Tick,
                     CoopDropTrace.Tick, CoopHud.Tick,
-                    () => { DriveMovementProbe(); DriveClientStartDiagnostics(); },
                 };
                 secondTickDue = new float[secondTicks.Length];
                 for (int i = 0; i < secondTicks.Length; i++)
@@ -738,9 +684,9 @@ namespace GK2Coop
             }
             try
             {
-                object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
+                object mainGame = CoopDiagnostics.GetStatic(RequireType("MainGame"), "Instance");
                 if (mainGame == null ||
-                    !string.Equals(Convert.ToString(GetInstanceMember(mainGame, "gameState")), "MainMenu", StringComparison.Ordinal))
+                    !string.Equals(Convert.ToString(CoopDiagnostics.GetMember(mainGame, "gameState")), "MainMenu", StringComparison.Ordinal))
                 {
                     return;
                 }
@@ -756,580 +702,16 @@ namespace GK2Coop
             }
         }
 
-        private void DriveMovementProbe()
-        {
-            if (!movementProbe.Value || gameplaySceneLoadedAt < 0f || !IsNativeInitialized())
-            {
-                return;
-            }
-            float elapsed = Time.unscaledTime - gameplaySceneLoadedAt;
-            object native = GetStaticMember(FindType("LazyNetwork"), "NetworkManager");
-            bool isHost = Convert.ToBoolean(GetInstanceMember(native, "IsHost"));
-            bool isClient = Convert.ToBoolean(GetInstanceMember(native, "IsClient"));
-            if (isHost && !movementProbeApplied && elapsed >= 4f)
-            {
-                object playerData = GetStaticMember(RequireType("MainGame"), "PlayerData");
-                object positionValue = GetInstanceMember(playerData, "position");
-                Vector3 before = (Vector3)GetInstanceMember(positionValue, "Value");
-                Vector3 after = before + new Vector3(0f, 0f, 0.5f);
-                SetInstanceMember(positionValue, "Value", after);
-                movementProbeApplied = true;
-                LogSource.LogInfo($"Movement probe changed host player-data position from {before:R} to {after:R}.");
-            }
-            else if (isClient && !isHost && clientIdentityFixed && !movementProbeApplied && elapsed >= 5f)
-            {
-                object playerData = GetStaticMember(RequireType("MainGame"), "PlayerData");
-                object positionValue = GetInstanceMember(playerData, "position");
-                Vector3 before = (Vector3)GetInstanceMember(positionValue, "Value");
-                Vector3 after = before + new Vector3(0.75f, 0f, 0f);
-                SetInstanceMember(positionValue, "Value", after);
-                movementProbeApplied = true;
-                LogSource.LogInfo($"Movement probe changed guest player-data position from {before:R} to {after:R}.");
-            }
-            if (!movementProbeReported && elapsed >= 9f)
-            {
-                Vector3 hostPosition = GetSavedPlayerPosition(0, true);
-                Vector3 guestPosition = GetSavedPlayerPosition(checked((int)(isHost ? outboundClientId : NetworkManager.Singleton.LocalClientId)), false);
-                movementProbeReported = true;
-                LogSource.LogInfo($"Movement probe observation: role={(isHost ? "host" : "client")}, host={hostPosition:R}, guest={guestPosition:R}.");
-            }
-        }
-
-        private static Vector3 GetSavedPlayerPosition(int clientId, bool considerHost)
-        {
-            object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-            object save = GetInstanceMember(mainGame, "GameSave");
-            MethodInfo getClient = save.GetType().GetMethod("GetClient", BindingFlags.Instance | BindingFlags.Public);
-            object[] args = { clientId, null, considerHost };
-            if (getClient == null || !(bool)getClient.Invoke(save, args))
-            {
-                throw new InvalidOperationException("Could not resolve network player " + clientId + " for the movement probe.");
-            }
-            object playerData = GetInstanceMember(args[1], "playerData");
-            object positionValue = GetInstanceMember(playerData, "position");
-            return (Vector3)GetInstanceMember(positionValue, "Value");
-        }
-
         private void DriveSessionAutomation()
         {
-            if (!IsNativeInitialized())
+            if (!normalFlowNetworking || clientIdentityFixed || !IsNativeInitialized())
             {
                 return;
             }
-            EnsureChunkHandler();
-            object native = GetStaticMember(FindType("LazyNetwork"), "NetworkManager");
-            bool isHost = Convert.ToBoolean(GetInstanceMember(native, "IsHost"));
-            bool isClient = Convert.ToBoolean(GetInstanceMember(native, "IsClient"));
-            if (normalFlowNetworking)
+            object native = CoopDiagnostics.GetStatic(FindGameType("LazyNetwork"), "NetworkManager");
+            if (Convert.ToBoolean(CoopDiagnostics.GetMember(native, "IsClient")) && !Convert.ToBoolean(CoopDiagnostics.GetMember(native, "IsHost")))
             {
-                if (isClient && !isHost && !clientIdentityFixed)
-                {
-                    AttachClientToExistingWorld();
-                }
-                return;
-            }
-            if (isHost && GetPeerCount(native) > 0)
-            {
-                if (!hostSaveSyncSent)
-                {
-                    hostSaveSyncSent = true;
-                    RunAction("Chunked host save synchronization", () => BeginSaveTransfer(native));
-                }
-                if (AreAllHostClientsSynced())
-                {
-                    if (hostClientsReadyAt < 0f)
-                    {
-                        hostClientsReadyAt = Time.unscaledTime;
-                        LogSource.LogInfo("All connected clients confirmed the host save.");
-                    }
-                    if (!hostStartSent && Time.unscaledTime - hostClientsReadyAt >= 5f)
-                    {
-                        hostStartSent = true;
-                        RunAction("Synchronized game start", () =>
-                        {
-                            object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-                            string state = Convert.ToString(GetInstanceMember(mainGame, "gameState"));
-                            if (!string.Equals(state, "InGame", StringComparison.Ordinal))
-                            {
-                                CloseStartupWindows(mainGame);
-                                Invoke(mainGame, "StartGame", true);
-                            }
-                            SpawnHostRemotePlayers(mainGame);
-                            SendStartGame(outboundClientId);
-                        });
-                    }
-                }
-            }
-            else if (isClient && !clientIdentityFixed)
-            {
-                TryFixClientIdentity();
-            }
-        }
-
-        private static int GetPeerCount(object native)
-        {
-            object peers = GetInstanceMember(native, "OtherClients");
-            return peers is System.Collections.ICollection collection ? collection.Count : 0;
-        }
-
-        private static bool AreAllHostClientsSynced()
-        {
-            FieldInfo field = RequireType("LobbyHelper").GetField("connectedClients", BindingFlags.Static | BindingFlags.NonPublic);
-            if (!(field?.GetValue(null) is System.Collections.IDictionary clients) || clients.Count == 0)
-            {
-                return false;
-            }
-            foreach (object value in clients.Values)
-            {
-                if (!(value is bool synced) || !synced)
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private void EnsureChunkHandler()
-        {
-            // CustomMessagingManager only exists once the NetworkManager is listening. Before that
-            // it is null, and touching it threw once per frame for the whole main-menu phase.
-            if (chunkHandlerRegistered ||
-                NetworkManager.Singleton == null ||
-                NetworkManager.Singleton.CustomMessagingManager == null)
-            {
-                return;
-            }
-            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(SaveChunkMessage, ReceiveSaveChunk);
-            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(SaveAckMessage, ReceiveSaveAck);
-            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(StartGameMessage, ReceiveStartGame);
-            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(ClientStatusMessage, ReceiveClientStatus);
-            chunkHandlerRegistered = true;
-            LogSource.LogInfo("Chunked save message handler registered.");
-        }
-
-        private static void SendStartGame(ulong recipient)
-        {
-            using (var writer = new FastBufferWriter(1, Allocator.Temp))
-            {
-                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
-                    StartGameMessage, recipient, writer, NetworkDelivery.Reliable);
-            }
-        }
-
-        private void ReceiveStartGame(ulong senderClientId, FastBufferReader reader)
-        {
-            if (senderClientId != NetworkManager.ServerClientId || NetworkManager.Singleton.IsHost)
-            {
-                return;
-            }
-            try
-            {
-                object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-                object save = GetInstanceMember(mainGame, "GameSave");
-                int clientId = checked((int)NetworkManager.Singleton.LocalClientId);
-                MethodInfo getClient = save.GetType().GetMethod("GetClient", BindingFlags.Instance | BindingFlags.Public);
-                object[] getClientArgs = { clientId, null, false };
-                if (getClient == null || !(bool)getClient.Invoke(save, getClientArgs))
-                {
-                    throw new InvalidOperationException("The synchronized save does not contain network player " + clientId + ".");
-                }
-                object commandHolder = GetInstanceMember(mainGame, "PlayerUniqueCommandHolder");
-                object clientPlayerData = GetInstanceMember(getClientArgs[1], "playerData");
-                SetInstanceMember(save, "playerData", clientPlayerData);
-                SetStaticMember(RequireType("MainGame"), "PlayerData", clientPlayerData);
-                object standardCustomization = GetStaticMember(RequireType("PlayerSkinHelper"), "playerStandardCustomizationData");
-                if (standardCustomization != null)
-                {
-                    Invoke(clientPlayerData, "ApplyCustomization", standardCustomization);
-                }
-                SetEntryScene(RequireType("MainGame"));
-                Invoke(commandHolder, "RegisterData", getClientArgs[1]);
-                CloseStartupWindows(mainGame);
-                SendClientStatus("start-command-received");
-                clientStartReceivedAt = Time.unscaledTime;
-                clientStatusStage = 0;
-                Invoke(mainGame, "StartGame", true);
-                object hostPlayer = GetInstanceMember(save, "hostPlayer");
-                Invoke(mainGame, "SpawnPlayer", hostPlayer);
-                LogSource.LogInfo("Corrected client game start invoked for network player " + clientId + ".");
-            }
-            catch (Exception ex)
-            {
-                LogSource.LogError("Corrected client game start failed: " + Unwrap(ex));
-                SendClientStatus("start-command-failed: " + Unwrap(ex));
-            }
-        }
-
-        private static void CloseStartupWindows(object mainGame)
-        {
-            foreach (string windowTypeName in new[] { "UILobbyWindow", "UIMainMenuWindow" })
-            {
-                Type windowType = RequireType(windowTypeName);
-                foreach (Component window in Resources.FindObjectsOfTypeAll(windowType).OfType<Component>())
-                {
-                    if (window.gameObject.activeInHierarchy)
-                    {
-                        Invoke(window, "Close");
-                    }
-                }
-            }
-            Invoke(mainGame, "SetMainMenuInfoPanelEnabled", false);
-        }
-
-        private void DriveClientStartDiagnostics()
-        {
-            if (clientStartReceivedAt < 0f || NetworkManager.Singleton == null || NetworkManager.Singleton.IsHost)
-            {
-                return;
-            }
-            float elapsed = Time.unscaledTime - clientStartReceivedAt;
-            int wantedStage = elapsed >= 20f ? 3 : elapsed >= 8f ? 2 : elapsed >= 2f ? 1 : 0;
-            if (wantedStage <= clientStatusStage)
-            {
-                return;
-            }
-            clientStatusStage = wantedStage;
-            SendClientStatus("start+" + Math.Round(elapsed) + "s: " + BuildCompactRuntimeStatus());
-        }
-
-        private static string BuildCompactRuntimeStatus()
-        {
-            object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-            object state = GetInstanceMember(mainGame, "gameState");
-            int bodies = Resources.FindObjectsOfTypeAll(RequireType("PlayerPhysicalBody")).Length;
-            string scenes = string.Join(",", Enumerable.Range(0, SceneManager.sceneCount)
-                .Select(index => SceneManager.GetSceneAt(index).name).ToArray());
-            return $"state={state}; preload={IsBackgroundPreloadComplete()}; bodies={bodies}; scenes={scenes}";
-        }
-
-        private static void SendClientStatus(string status)
-        {
-            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsHost)
-            {
-                return;
-            }
-            var value = new FixedString512Bytes(status);
-            using (var writer = new FastBufferWriter(512, Allocator.Temp))
-            {
-                writer.WriteValueSafe(value);
-                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
-                    ClientStatusMessage, NetworkManager.ServerClientId, writer, NetworkDelivery.Reliable);
-            }
-        }
-
-        private void ReceiveClientStatus(ulong senderClientId, FastBufferReader reader)
-        {
-            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsHost)
-            {
-                return;
-            }
-            reader.ReadValueSafe(out FixedString512Bytes status);
-            LogSource.LogInfo($"Client {senderClientId} status: {status}");
-        }
-
-        private static void SpawnHostRemotePlayers(object mainGame)
-        {
-            object save = GetInstanceMember(mainGame, "GameSave");
-            var clients = GetInstanceMember(save, "clientPlayers") as System.Collections.IEnumerable;
-            if (clients == null)
-            {
-                return;
-            }
-            foreach (object client in clients)
-            {
-                Invoke(mainGame, "SpawnPlayer", client);
-            }
-        }
-
-        private void BeginSaveTransfer(object native)
-        {
-            EnsureChunkHandler();
-            object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-            object save = GetInstanceMember(mainGame, "GameSave");
-            Type serializer = RequireType("BinaryDataSerializer");
-            MethodInfo openMethod = serializer.GetMethods(BindingFlags.Static | BindingFlags.Public)
-                .First(method => method.Name == "SerializeData" && method.IsGenericMethodDefinition);
-            byte[] serialized = (byte[])openMethod.MakeGenericMethod(save.GetType()).Invoke(null, new[] { save });
-            outboundSave = Compress(serialized);
-            outboundTransferId = Environment.TickCount;
-            outboundChunkIndex = 0;
-            outboundAwaitingAck = false;
-            outboundClientId = GetFirstPeerId(native);
-            int chunks = (outboundSave.Length + SaveChunkSize - 1) / SaveChunkSize;
-            LogSource.LogInfo($"Starting chunked save transfer {outboundTransferId}: {serialized.Length} bytes serialized, {outboundSave.Length} bytes compressed, {chunks} chunks to client {outboundClientId}.");
-        }
-
-        private static ulong GetFirstPeerId(object native)
-        {
-            if (GetInstanceMember(native, "OtherClients") is System.Collections.IEnumerable peers)
-            {
-                foreach (object peer in peers)
-                {
-                    return Convert.ToUInt64(peer);
-                }
-            }
-            throw new InvalidOperationException("No remote client is available for save transfer.");
-        }
-
-        private void PumpSaveTransfer()
-        {
-            if (outboundSave == null || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
-            {
-                return;
-            }
-            if (outboundAwaitingAck && Time.realtimeSinceStartup - outboundLastSendTime < 1f)
-            {
-                return;
-            }
-            int totalChunks = (outboundSave.Length + SaveChunkSize - 1) / SaveChunkSize;
-            if (outboundChunkIndex >= totalChunks && !outboundAwaitingAck)
-            {
-                LogSource.LogInfo($"Finished acknowledged save transfer {outboundTransferId} ({totalChunks} chunks).");
-                outboundSave = null;
-                return;
-            }
-
-            int offset = outboundChunkIndex * SaveChunkSize;
-            int length = Math.Min(SaveChunkSize, outboundSave.Length - offset);
-            using (var writer = new FastBufferWriter(16 + length, Allocator.Temp))
-            {
-                writer.WriteValueSafe(outboundTransferId);
-                writer.WriteValueSafe(outboundSave.Length);
-                writer.WriteValueSafe(outboundChunkIndex);
-                writer.WriteValueSafe(length);
-                writer.WriteBytesSafe(outboundSave, length, offset);
-                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
-                    SaveChunkMessage, outboundClientId, writer, NetworkDelivery.ReliableSequenced);
-            }
-            if (outboundChunkIndex == 0)
-            {
-                LogSource.LogInfo("First save chunk queued successfully.");
-            }
-            outboundAwaitingAck = true;
-            outboundLastSendTime = Time.realtimeSinceStartup;
-        }
-
-        private void ReceiveSaveChunk(ulong senderClientId, FastBufferReader reader)
-        {
-            reader.ReadValueSafe(out int transferId);
-            reader.ReadValueSafe(out int totalBytes);
-            reader.ReadValueSafe(out int chunkIndex);
-            reader.ReadValueSafe(out int length);
-            if (totalBytes <= 0 || totalBytes > 32 * 1024 * 1024 || length <= 0 || length > SaveChunkSize)
-            {
-                throw new InvalidOperationException("Rejected invalid save chunk header.");
-            }
-            int totalChunks = (totalBytes + SaveChunkSize - 1) / SaveChunkSize;
-            if (chunkIndex < 0 || chunkIndex >= totalChunks)
-            {
-                throw new InvalidOperationException("Rejected out-of-range save chunk index.");
-            }
-            if (transferId == lastCompletedTransferId)
-            {
-                SendSaveAck(senderClientId, transferId, chunkIndex);
-                return;
-            }
-
-            if (inboundTransferId != transferId)
-            {
-                inboundTransferId = transferId;
-                inboundSave = new byte[totalBytes];
-                inboundChunks = new bool[totalChunks];
-                inboundChunkCount = 0;
-                LogSource.LogInfo($"Receiving chunked save transfer {transferId}: {totalBytes} bytes in {totalChunks} chunks from {senderClientId}.");
-            }
-            if (inboundSave.Length != totalBytes || inboundChunks.Length != totalChunks)
-            {
-                throw new InvalidOperationException("Save transfer dimensions changed mid-stream.");
-            }
-
-            int offset = chunkIndex * SaveChunkSize;
-            int expectedLength = Math.Min(SaveChunkSize, totalBytes - offset);
-            if (length != expectedLength)
-            {
-                throw new InvalidOperationException("Save chunk length does not match its index.");
-            }
-            reader.ReadBytesSafe(ref inboundSave, length, offset);
-            if (!inboundChunks[chunkIndex])
-            {
-                inboundChunks[chunkIndex] = true;
-                inboundChunkCount++;
-                if (inboundChunkCount % 100 == 0)
-                {
-                    LogSource.LogInfo($"Save transfer {transferId}: received {inboundChunkCount}/{totalChunks} chunks.");
-                }
-            }
-            SendSaveAck(senderClientId, transferId, chunkIndex);
-            if (inboundChunkCount == totalChunks)
-            {
-                LogSource.LogInfo($"Save transfer {transferId}: received all {totalChunks} chunks; reconstructing the save.");
-                try
-                {
-                    CompleteSaveTransfer();
-                }
-                catch (Exception ex)
-                {
-                    LogSource.LogError("Failed to reconstruct or apply the received save: " + Unwrap(ex));
-                }
-            }
-        }
-
-        private static void SendSaveAck(ulong recipient, int transferId, int chunkIndex)
-        {
-            using (var writer = new FastBufferWriter(8, Allocator.Temp))
-            {
-                writer.WriteValueSafe(transferId);
-                writer.WriteValueSafe(chunkIndex);
-                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
-                    SaveAckMessage, recipient, writer, NetworkDelivery.ReliableSequenced);
-            }
-        }
-
-        private void ReceiveSaveAck(ulong senderClientId, FastBufferReader reader)
-        {
-            reader.ReadValueSafe(out int transferId);
-            reader.ReadValueSafe(out int chunkIndex);
-            if (outboundSave == null || transferId != outboundTransferId || chunkIndex != outboundChunkIndex || senderClientId != outboundClientId)
-            {
-                return;
-            }
-            outboundAwaitingAck = false;
-            outboundChunkIndex++;
-        }
-
-        private void CompleteSaveTransfer()
-        {
-            Type saveType = RequireType("GameSave");
-            Type serializer = RequireType("BinaryDataSerializer");
-            MethodInfo openMethod = serializer.GetMethods(BindingFlags.Static | BindingFlags.Public)
-                .First(method => method.Name == "DeserializeData" && method.IsGenericMethodDefinition);
-            byte[] serialized = Decompress(inboundSave);
-            object save = openMethod.MakeGenericMethod(saveType).Invoke(null, new object[] { serialized });
-            bool applyHostWorld = applyReceivedWorld != null && applyReceivedWorld.Value;
-            if (NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsHost && !applyHostWorld)
-            {
-                save = CreateFreshClientSaveWithReceivedPlayers(saveType, save);
-                LogSource.LogInfo("Rebuilt the fresh client world with the received network-player topology.");
-            }
-            else if (applyHostWorld)
-            {
-                LogSource.LogWarning("ApplyReceivedWorld is on: applying the host's actual world. " +
-                                     DescribeWorld(save) + " This is Phase 5 research and is expected to fail.");
-            }
-            int completedId = inboundTransferId;
-            lastCompletedTransferId = completedId;
-            inboundSave = null;
-            inboundChunks = null;
-            inboundChunkCount = 0;
-            inboundTransferId = -1;
-            InvokeStatic(RequireType("LobbyHelper"), "Client_InitGameSave", save);
-            LogSource.LogInfo("Completed and applied chunked save transfer " + completedId + ".");
-            SendClientStatus("save-applied: " + BuildCompactRuntimeStatus());
-        }
-
-        /// <summary>Scene and object counts, so a rejoin failure can be tied to what was applied.</summary>
-        private static string DescribeWorld(object save)
-        {
-            try
-            {
-                object world = GetInstanceMember(save, "worldData");
-                var scenes = GetInstanceMember(world, "gameSceneDataList") as System.Collections.IEnumerable;
-                int sceneCount = 0;
-                int wgoCount = 0;
-                foreach (object scene in scenes ?? new object[0])
-                {
-                    sceneCount++;
-                    var wgos = GetInstanceMember(scene, "wgoDataList") as System.Collections.ICollection;
-                    wgoCount += wgos == null ? 0 : wgos.Count;
-                }
-                return "Received world: " + sceneCount + " scenes, " + wgoCount + " world objects.";
-            }
-            catch (Exception ex)
-            {
-                return "Received world could not be described: " + ex.Message + ".";
-            }
-        }
-
-        private static object CreateFreshClientSaveWithReceivedPlayers(Type saveType, object receivedSave)
-        {
-            object freshSave = Activator.CreateInstance(saveType);
-            InvokeStatic(saveType, "SetupNewGameSave", freshSave);
-            object hostPlayerData = GetInstanceMember(freshSave, "playerData");
-            Invoke(hostPlayerData, "TryApplyStartState");
-
-            Type networkPlayerType = RequireType("NetworkPlayer");
-            ConstructorInfo playerConstructor = networkPlayerType.GetConstructor(new[] { typeof(int), hostPlayerData.GetType() });
-            if (playerConstructor == null)
-            {
-                throw new MissingMethodException(networkPlayerType.FullName, ".ctor(int, PlayerData)");
-            }
-            object hostPlayer = playerConstructor.Invoke(new[] { (object)0, hostPlayerData });
-            SetInstanceMember(freshSave, "hostPlayer", hostPlayer);
-
-            var receivedClients = GetInstanceMember(receivedSave, "clientPlayers") as System.Collections.IEnumerable;
-            if (receivedClients != null)
-            {
-                foreach (object receivedClient in receivedClients)
-                {
-                    int clientId = Convert.ToInt32(GetInstanceMember(receivedClient, "clientId"));
-                    Invoke(freshSave, "CreateClient", clientId);
-                }
-            }
-            return freshSave;
-        }
-
-        private static byte[] Compress(byte[] data)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(data, 0, data.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] data)
-        {
-            using (var input = new MemoryStream(data))
-            using (var gzip = new GZipStream(input, CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                gzip.CopyTo(output);
-                return output.ToArray();
-            }
-        }
-
-        private void TryFixClientIdentity()
-        {
-            Type mainGameType = RequireType("MainGame");
-            object mainGame = GetStaticMember(mainGameType, "Instance");
-            object save = GetInstanceMember(mainGame, "GameSave");
-            if (save == null)
-            {
-                return;
-            }
-            object netcode = GetStaticMember(RequireType("Unity.Netcode.NetworkManager"), "Singleton");
-            int localId = Convert.ToInt32(GetInstanceMember(netcode, "LocalClientId"));
-            object players = GetInstanceMember(save, "clientPlayers");
-            if (!(players is System.Collections.IEnumerable enumerable))
-            {
-                return;
-            }
-            foreach (object player in enumerable)
-            {
-                if (Convert.ToInt32(GetInstanceMember(player, "clientId")) != localId)
-                {
-                    continue;
-                }
-                object playerData = GetInstanceMember(player, "playerData");
-                SetInstanceMember(save, "playerData", playerData);
-                SetStaticMember(mainGameType, "PlayerData", playerData);
-                SetEntryScene(mainGameType);
-                clientIdentityFixed = true;
-                LogSource.LogInfo("Client identity corrected to network player " + localId + ".");
-                return;
+                AttachClientToExistingWorld();
             }
         }
 
@@ -1339,9 +721,9 @@ namespace GK2Coop
             {
                 return;
             }
-            object netcode = GetStaticMember(FindType("Unity.Netcode.NetworkManager"), "Singleton");
-            object native = GetStaticMember(FindType("LazyNetwork"), "NetworkManager");
-            object peers = GetInstanceMember(native, "OtherClients");
+            object netcode = CoopDiagnostics.GetStatic(FindGameType("Unity.Netcode.NetworkManager"), "Singleton");
+            object native = CoopDiagnostics.GetStatic(FindGameType("LazyNetwork"), "NetworkManager");
+            object peers = CoopDiagnostics.GetMember(native, "OtherClients");
             int peerCount = peers is System.Collections.ICollection collection ? collection.Count : -1;
             string state = DescribeMemberValues(netcode, "Netcode", "IsHost", "IsClient", "IsServer", "IsListening", "LocalClientId") +
                            "; peers=" + peerCount;
@@ -1362,8 +744,8 @@ namespace GK2Coop
 
             if (string.Equals(startupMode.Value, "Host", StringComparison.OrdinalIgnoreCase))
             {
-                object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-                string state = Convert.ToString(GetInstanceMember(mainGame, "gameState"));
+                object mainGame = CoopDiagnostics.GetStatic(RequireType("MainGame"), "Instance");
+                string state = Convert.ToString(CoopDiagnostics.GetMember(mainGame, "gameState"));
                 if (string.Equals(state, "MainMenu", StringComparison.Ordinal))
                 {
                     return;
@@ -1378,8 +760,8 @@ namespace GK2Coop
             }
             else if (string.Equals(startupMode.Value, "Connect", StringComparison.OrdinalIgnoreCase))
             {
-                object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-                string state = Convert.ToString(GetInstanceMember(mainGame, "gameState"));
+                object mainGame = CoopDiagnostics.GetStatic(RequireType("MainGame"), "Instance");
+                string state = Convert.ToString(CoopDiagnostics.GetMember(mainGame, "gameState"));
                 if (string.Equals(state, "MainMenu", StringComparison.Ordinal))
                 {
                     return;
@@ -1403,12 +785,12 @@ namespace GK2Coop
 
         private static bool IsNormalLocalGameReady(object mainGame)
         {
-            if (!string.Equals(Convert.ToString(GetInstanceMember(mainGame, "gameState")), "InGame", StringComparison.Ordinal))
+            if (!string.Equals(Convert.ToString(CoopDiagnostics.GetMember(mainGame, "gameState")), "InGame", StringComparison.Ordinal))
             {
                 return false;
             }
-            object controller = GetInstanceMember(mainGame, "playerController");
-            if (!Convert.ToBoolean(GetInstanceMember(controller, "IsControlsEnabled")) &&
+            object controller = CoopDiagnostics.GetMember(mainGame, "playerController");
+            if (!Convert.ToBoolean(CoopDiagnostics.GetMember(controller, "IsControlsEnabled")) &&
                 (relaxStartupGate == null || !relaxStartupGate.Value))
             {
                 // The intro cinematic holds control until the player presses a key, so an
@@ -1534,32 +916,18 @@ namespace GK2Coop
 
         private void DrawWindow(int id)
         {
+            // Read-only: its old "Host new test world" button swapped the loaded world for a blank
+            // one, which the game's next save wrote into the player's slot.
             GUILayout.Label("F8 toggles this window. F9 writes a detailed snapshot to the BepInEx log.");
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Address", GUILayout.Width(58f));
-            address = GUILayout.TextField(address, GUILayout.Width(180f));
-            GUILayout.Label("Port", GUILayout.Width(32f));
-            port = GUILayout.TextField(port, GUILayout.Width(75f));
             if (GUILayout.Button("Refresh", GUILayout.Width(90f)))
             {
                 RefreshReport();
             }
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
             GUI.enabled = CanInitialize(out _);
             if (GUILayout.Button("Initialize native network"))
             {
                 RunAction("Initialize", InitializeNativeNetwork);
-            }
-            GUI.enabled = IsNativeInitialized();
-            if (GUILayout.Button("Host new test world"))
-            {
-                RunAction("Host", HostNewTestWorld);
-            }
-            if (GUILayout.Button("Connect"))
-            {
-                RunAction("Connect", ConnectToHost);
             }
             GUI.enabled = true;
             GUILayout.EndHorizontal();
@@ -1602,12 +970,12 @@ namespace GK2Coop
                     $"Scene: {SceneManager.GetActiveScene().name}",
                     $"LazyNetwork initialized: {IsNativeInitialized()}",
                     DescribeSingleton("Unity.Netcode.NetworkManager", "Singleton"),
-                    DescribeMemberValues(GetStaticMember(FindType("Unity.Netcode.NetworkManager"), "Singleton"), "Netcode", "IsHost", "IsClient", "IsServer", "IsListening", "LocalClientId"),
+                    DescribeMemberValues(CoopDiagnostics.GetStatic(FindGameType("Unity.Netcode.NetworkManager"), "Singleton"), "Netcode", "IsHost", "IsClient", "IsServer", "IsListening", "LocalClientId"),
                     DescribeSingleton("ConnectionNotificationManager", "Singleton"),
                     "Background preload complete: " + IsBackgroundPreloadComplete(),
-                    DescribeMemberValues(IsNativeInitialized() ? GetStaticMember(FindType("LazyNetwork"), "NetworkManager") : null, "Native manager", "IsCoopGame", "IsHost", "IsClient", "MyId", "ServerClientId"),
-                    DescribeMemberValues(GetStaticMember(FindType("MainGame"), "Instance"), "Main game", "gameState", "IsGamePaused"),
-                    DescribeMemberValues(GetInstanceMember(GetStaticMember(FindType("MainGame"), "Instance"), "playerController"), "Local player", "IsControlsEnabled", "IsPaused"),
+                    DescribeMemberValues(IsNativeInitialized() ? CoopDiagnostics.GetStatic(FindGameType("LazyNetwork"), "NetworkManager") : null, "Native manager", "IsCoopGame", "IsHost", "IsClient", "MyId", "ServerClientId"),
+                    DescribeMemberValues(CoopDiagnostics.GetStatic(FindGameType("MainGame"), "Instance"), "Main game", "gameState", "IsGamePaused"),
+                    DescribeMemberValues(CoopDiagnostics.GetMember(CoopDiagnostics.GetStatic(FindGameType("MainGame"), "Instance"), "playerController"), "Local player", "IsControlsEnabled", "IsPaused"),
                     DescribeObjects("LazyNetwork"),
                     DescribeObjects("UNetworkManager"),
                     DescribeObjects("GameNetworkManager"),
@@ -1638,17 +1006,17 @@ namespace GK2Coop
                 reason = "Already initialized.";
                 return false;
             }
-            if (FindRuntimeObject(FindType("UNetworkManager")) == null)
+            if (FindRuntimeObject(FindGameType("UNetworkManager")) == null)
             {
                 reason = "No live UNetworkManager component was found.";
                 return false;
             }
-            if (GetStaticMember(FindType("Unity.Netcode.NetworkManager"), "Singleton") == null)
+            if (CoopDiagnostics.GetStatic(FindGameType("Unity.Netcode.NetworkManager"), "Singleton") == null)
             {
                 reason = "Unity Netcode NetworkManager.Singleton is absent.";
                 return false;
             }
-            if (GetStaticMember(FindType("ConnectionNotificationManager"), "Singleton") == null)
+            if (CoopDiagnostics.GetStatic(FindGameType("ConnectionNotificationManager"), "Singleton") == null)
             {
                 reason = "ConnectionNotificationManager.Singleton is absent.";
                 return false;
@@ -1685,22 +1053,10 @@ namespace GK2Coop
             init.Invoke(lazy, new[] { (object)manager, channels });
         }
 
-        private void HostNewTestWorld()
-        {
-            ushort parsedPort = ParsePort();
-            object manager = GetStaticMember(RequireType("LazyNetwork"), "NetworkManager");
-            bool started = (bool)Invoke(manager, "StartHostGame", address, parsedPort);
-            if (!started)
-            {
-                throw new InvalidOperationException("Unity Netcode refused to start the host.");
-            }
-            CorrectedHostInit();
-        }
-
         private void HostExistingWorld()
         {
             ushort parsedPort = ParsePort();
-            object manager = GetStaticMember(RequireType("LazyNetwork"), "NetworkManager");
+            object manager = CoopDiagnostics.GetStatic(RequireType("LazyNetwork"), "NetworkManager");
             bool started = (bool)Invoke(manager, "StartHostGame", address, parsedPort);
             if (!started)
             {
@@ -1708,15 +1064,15 @@ namespace GK2Coop
             }
 
             Type mainGameType = RequireType("MainGame");
-            object mainGame = GetStaticMember(mainGameType, "Instance");
-            object save = GetInstanceMember(mainGame, "GameSave");
-            object playerData = GetInstanceMember(save, "playerData");
-            object netcode = GetStaticMember(RequireType("Unity.Netcode.NetworkManager"), "Singleton");
-            int clientId = Convert.ToInt32(GetInstanceMember(netcode, "LocalClientId"));
+            object mainGame = CoopDiagnostics.GetStatic(mainGameType, "Instance");
+            object save = CoopDiagnostics.GetMember(mainGame, "GameSave");
+            object playerData = CoopDiagnostics.GetMember(save, "playerData");
+            object netcode = CoopDiagnostics.GetStatic(RequireType("Unity.Netcode.NetworkManager"), "Singleton");
+            int clientId = Convert.ToInt32(CoopDiagnostics.GetMember(netcode, "LocalClientId"));
             object networkPlayer = Activator.CreateInstance(RequireType("NetworkPlayer"), clientId, playerData);
             CoopSession.AssignStablePlayerGuid(networkPlayer);
             SetInstanceMember(save, "hostPlayer", networkPlayer);
-            object commandHolder = GetInstanceMember(mainGame, "PlayerUniqueCommandHolder");
+            object commandHolder = CoopDiagnostics.GetMember(mainGame, "PlayerUniqueCommandHolder");
             Invoke(commandHolder, "RegisterData", networkPlayer);
             AttachCorrectedHostCallbacks(netcode);
             normalFlowNetworking = true;
@@ -1732,20 +1088,20 @@ namespace GK2Coop
         internal static bool EnsureRemotePlayer(int clientId, string label)
         {
             Type mainGameType = RequireType("MainGame");
-            object mainGame = GetStaticMember(mainGameType, "Instance");
-            object save = mainGame == null ? null : GetInstanceMember(mainGame, "GameSave");
+            object mainGame = CoopDiagnostics.GetStatic(mainGameType, "Instance");
+            object save = mainGame == null ? null : CoopDiagnostics.GetMember(mainGame, "GameSave");
             if (save == null)
             {
                 return false;
             }
-            var clients = GetInstanceMember(save, "clientPlayers") as System.Collections.IList;
+            var clients = CoopDiagnostics.GetMember(save, "clientPlayers") as System.Collections.IList;
             if (clients == null)
             {
                 return false;
             }
             foreach (object existing in clients)
             {
-                if (Convert.ToInt32(GetInstanceMember(existing, "clientId")) == clientId)
+                if (Convert.ToInt32(CoopDiagnostics.GetMember(existing, "clientId")) == clientId)
                 {
                     return false;
                 }
@@ -1765,37 +1121,37 @@ namespace GK2Coop
 
         private void AttachClientToExistingWorld()
         {
-            object netcode = GetStaticMember(RequireType("Unity.Netcode.NetworkManager"), "Singleton");
-            if (!Convert.ToBoolean(GetInstanceMember(netcode, "IsConnectedClient")))
+            object netcode = CoopDiagnostics.GetStatic(RequireType("Unity.Netcode.NetworkManager"), "Singleton");
+            if (!Convert.ToBoolean(CoopDiagnostics.GetMember(netcode, "IsConnectedClient")))
             {
                 return;
             }
 
             Type mainGameType = RequireType("MainGame");
-            object mainGame = GetStaticMember(mainGameType, "Instance");
-            object save = GetInstanceMember(mainGame, "GameSave");
-            object localPlayerData = GetInstanceMember(save, "playerData");
-            int localId = Convert.ToInt32(GetInstanceMember(netcode, "LocalClientId"));
+            object mainGame = CoopDiagnostics.GetStatic(mainGameType, "Instance");
+            object save = CoopDiagnostics.GetMember(mainGame, "GameSave");
+            object localPlayerData = CoopDiagnostics.GetMember(save, "playerData");
+            int localId = Convert.ToInt32(CoopDiagnostics.GetMember(netcode, "LocalClientId"));
             Type networkPlayerType = RequireType("NetworkPlayer");
             object localPlayer = Activator.CreateInstance(networkPlayerType, localId, localPlayerData);
             CoopSession.AssignStablePlayerGuid(localPlayer);
-            var clients = GetInstanceMember(save, "clientPlayers") as System.Collections.IList;
+            var clients = CoopDiagnostics.GetMember(save, "clientPlayers") as System.Collections.IList;
             // Safe to run again in the same world: no second record for us, no second host body.
             if (clients != null)
             {
-                foreach (object stale in clients.Cast<object>().Where(c => ReferenceEquals(GetInstanceMember(c, "playerData"), localPlayerData)).ToList())
+                foreach (object stale in clients.Cast<object>().Where(c => ReferenceEquals(CoopDiagnostics.GetMember(c, "playerData"), localPlayerData)).ToList())
                 {
                     clients.Remove(stale);
                 }
             }
-            object previousHost = GetInstanceMember(save, "hostPlayer");
+            object previousHost = CoopDiagnostics.GetMember(save, "hostPlayer");
             if (previousHost != null)
             {
-                CoopWatchdog.DestroyBodiesOf(GetInstanceMember(previousHost, "playerData"));
+                CoopWatchdog.DestroyBodiesOf(CoopDiagnostics.GetMember(previousHost, "playerData"));
             }
             clients?.Add(localPlayer);
             SetStaticMember(mainGameType, "PlayerData", localPlayerData);
-            object commandHolder = GetInstanceMember(mainGame, "PlayerUniqueCommandHolder");
+            object commandHolder = CoopDiagnostics.GetMember(mainGame, "PlayerUniqueCommandHolder");
             Invoke(commandHolder, "RegisterData", localPlayer);
 
             Type playerDataType = RequireType("PlayerData");
@@ -1812,34 +1168,6 @@ namespace GK2Coop
             // since stayed on the ground).
             CoopDropSync.ClearForJoinSnapshot();
             LogSource.LogInfo("Attached client networking to the normally initialized local game world.");
-            SendClientStatus("normal-world-attached: " + BuildCompactRuntimeStatus());
-        }
-
-        private void CorrectedHostInit()
-        {
-            Type saveType = RequireType("GameSave");
-            Type playerType = RequireType("NetworkPlayer");
-            Type mainGameType = RequireType("MainGame");
-            Type lobbyType = RequireType("LobbyHelper");
-            object save = Activator.CreateInstance(saveType);
-            InvokeStatic(saveType, "SetupNewGameSave", save);
-
-            object playerData = GetInstanceMember(save, "playerData");
-            Invoke(playerData, "TryApplyStartState");
-            object mainGame = GetStaticMember(mainGameType, "Instance");
-            Invoke(mainGame, "SetGameSave", save);
-            SetStaticMember(mainGameType, "PlayerData", playerData);
-            SetEntryScene(mainGameType);
-
-            object netcode = GetStaticMember(RequireType("Unity.Netcode.NetworkManager"), "Singleton");
-            int clientId = Convert.ToInt32(GetInstanceMember(netcode, "LocalClientId"));
-            object networkPlayer = Activator.CreateInstance(playerType, clientId, playerData);
-            SetInstanceMember(save, "hostPlayer", networkPlayer);
-            object commandHolder = GetInstanceMember(mainGame, "PlayerUniqueCommandHolder");
-            Invoke(commandHolder, "RegisterData", networkPlayer);
-
-            AttachCorrectedHostCallbacks(netcode);
-            LogSource.LogInfo("Corrected native host world initialized and connection callbacks attached.");
         }
 
         private void AttachCorrectedHostCallbacks(object netcode)
@@ -1878,14 +1206,14 @@ namespace GK2Coop
             }
             try
             {
-                object localPlayerData = GetStaticMember(RequireType("MainGame"), "PlayerData");
-                object remotePlayerData = GetInstanceMember(networkPlayer, "playerData");
+                object localPlayerData = CoopDiagnostics.GetStatic(RequireType("MainGame"), "PlayerData");
+                object remotePlayerData = CoopDiagnostics.GetMember(networkPlayer, "playerData");
                 if (localPlayerData == null || remotePlayerData == null)
                 {
                     return;
                 }
                 Vector3 local = CoopDiagnostics.ReadPositionValue(localPlayerData);
-                object remotePosition = GetInstanceMember(remotePlayerData, "position");
+                object remotePosition = CoopDiagnostics.GetMember(remotePlayerData, "position");
                 if (remotePosition == null)
                 {
                     return;
@@ -1910,8 +1238,8 @@ namespace GK2Coop
             {
                 return;
             }
-            object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-            object save = GetInstanceMember(mainGame, "GameSave");
+            object mainGame = CoopDiagnostics.GetStatic(RequireType("MainGame"), "Instance");
+            object save = CoopDiagnostics.GetMember(mainGame, "GameSave");
             Invoke(save, "CreateClient", checked((int)clientId));
 
             Type lobbyType = RequireType("LobbyHelper");
@@ -1924,9 +1252,9 @@ namespace GK2Coop
             // stopped the rest of the join bookkeeping.
             clients[clientId] = false;
 
-            object onClientAdded = GetStaticMember(lobbyType, "OnClientAdded");
+            object onClientAdded = CoopDiagnostics.GetStatic(lobbyType, "OnClientAdded");
             (onClientAdded as Delegate)?.DynamicInvoke(clientId);
-            if (normalFlowNetworking && string.Equals(Convert.ToString(GetInstanceMember(mainGame, "gameState")), "InGame", StringComparison.Ordinal))
+            if (normalFlowNetworking && string.Equals(Convert.ToString(CoopDiagnostics.GetMember(mainGame, "gameState")), "InGame", StringComparison.Ordinal))
             {
                 MethodInfo getClient = save.GetType().GetMethod("GetClient", BindingFlags.Instance | BindingFlags.Public);
                 object[] args = { checked((int)clientId), null, false };
@@ -1947,15 +1275,15 @@ namespace GK2Coop
                 return;
             }
 
-            object mainGame = GetStaticMember(RequireType("MainGame"), "Instance");
-            object save = GetInstanceMember(mainGame, "GameSave");
-            var clientPlayers = GetInstanceMember(save, "clientPlayers") as System.Collections.IList;
+            object mainGame = CoopDiagnostics.GetStatic(RequireType("MainGame"), "Instance");
+            object save = CoopDiagnostics.GetMember(mainGame, "GameSave");
+            var clientPlayers = CoopDiagnostics.GetMember(save, "clientPlayers") as System.Collections.IList;
             object disconnectedPlayer = null;
             if (clientPlayers != null)
             {
                 foreach (object player in clientPlayers)
                 {
-                    if (Convert.ToUInt64(GetInstanceMember(player, "clientId")) == clientId)
+                    if (Convert.ToUInt64(CoopDiagnostics.GetMember(player, "clientId")) == clientId)
                     {
                         disconnectedPlayer = player;
                         break;
@@ -1965,11 +1293,11 @@ namespace GK2Coop
 
             if (disconnectedPlayer != null)
             {
-                object playerData = GetInstanceMember(disconnectedPlayer, "playerData");
+                object playerData = CoopDiagnostics.GetMember(disconnectedPlayer, "playerData");
                 Type bodyType = RequireType("PlayerPhysicalBody");
                 foreach (Component body in Resources.FindObjectsOfTypeAll(bodyType).OfType<Component>())
                 {
-                    if (ReferenceEquals(GetInstanceMember(body, "playerData"), playerData))
+                    if (ReferenceEquals(CoopDiagnostics.GetMember(body, "playerData"), playerData))
                     {
                         Destroy(body.gameObject);
                     }
@@ -2024,7 +1352,7 @@ namespace GK2Coop
         private void ConnectToHost()
         {
             ushort parsedPort = ParsePort();
-            object manager = GetStaticMember(RequireType("LazyNetwork"), "NetworkManager");
+            object manager = CoopDiagnostics.GetStatic(RequireType("LazyNetwork"), "NetworkManager");
             bool started = (bool)Invoke(manager, "ConnectToHost", address, parsedPort);
             if (!started)
             {
@@ -2132,8 +1460,8 @@ namespace GK2Coop
 
         private static bool IsNativeInitialized()
         {
-            Type type = FindType("LazyNetwork");
-            object value = GetStaticMember(type, "IsInitialized");
+            Type type = FindGameType("LazyNetwork");
+            object value = CoopDiagnostics.GetStatic(type, "IsInitialized");
             return value is bool result && result;
         }
 
@@ -2141,13 +1469,13 @@ namespace GK2Coop
         {
             try
             {
-                if (FindRuntimeObject(FindType("MainGame")) == null)
+                if (FindRuntimeObject(FindGameType("MainGame")) == null)
                 {
                     return false;
                 }
-                Type pipelineType = FindType("LoadingPipeline");
-                Type stageType = FindType("LoadingStage");
-                object pipeline = GetStaticMember(pipelineType, "Instance");
+                Type pipelineType = FindGameType("LoadingPipeline");
+                Type stageType = FindGameType("LoadingStage");
+                object pipeline = CoopDiagnostics.GetStatic(pipelineType, "Instance");
                 if (pipeline == null || stageType == null)
                 {
                     return false;
@@ -2169,14 +1497,14 @@ namespace GK2Coop
 
         private static string DescribeSingleton(string typeName, string member)
         {
-            Type type = FindType(typeName);
-            object singleton = GetStaticMember(type, member);
+            Type type = FindGameType(typeName);
+            object singleton = CoopDiagnostics.GetStatic(type, member);
             return typeName + "." + member + ": " + DescribeObject(singleton as UnityEngine.Object);
         }
 
         private static string DescribeObjects(string typeName)
         {
-            Type type = FindType(typeName);
+            Type type = FindGameType(typeName);
             if (type == null)
             {
                 return typeName + ": type missing";
@@ -2241,21 +1569,12 @@ namespace GK2Coop
 
         private static Type RequireType(string name)
         {
-            Type type = FindType(name);
+            Type type = FindGameType(name);
             if (type == null)
             {
                 throw new TypeLoadException("Game type not found: " + name);
             }
             return type;
-        }
-
-        /// <summary>
-        /// Cached type lookup for the diagnostics and patch helpers, which resolve the same handful
-        /// of game types from hot paths such as the per-command telemetry prefix.
-        /// </summary>
-        internal static Type FindGameType(string name)
-        {
-            return FindType(name);
         }
 
         private static readonly Dictionary<string, KeyValuePair<Type, int>> typeLookups = new Dictionary<string, KeyValuePair<Type, int>>();
@@ -2265,7 +1584,7 @@ namespace GK2Coop
         /// ask for the same few types every second, and each search went through every loaded
         /// assembly, a miss through every type in them.
         /// </summary>
-        private static Type FindType(string name)
+        internal static Type FindGameType(string name)
         {
             int now = Environment.TickCount;
             lock (typeLookups)
@@ -2316,37 +1635,6 @@ namespace GK2Coop
             return null;
         }
 
-        private static object GetStaticMember(Type type, string name)
-        {
-            if (type == null)
-            {
-                return null;
-            }
-            const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-            PropertyInfo property = type.GetProperty(name, flags);
-            if (property != null)
-            {
-                return property.GetValue(null, null);
-            }
-            FieldInfo field = type.GetField(name, flags);
-            return field?.GetValue(null);
-        }
-
-        private static object GetInstanceMember(object target, string name)
-        {
-            if (target == null)
-            {
-                return null;
-            }
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            PropertyInfo property = target.GetType().GetProperty(name, flags);
-            if (property != null)
-            {
-                return property.GetValue(target, null);
-            }
-            return target.GetType().GetField(name, flags)?.GetValue(target);
-        }
-
         private static void SetStaticMember(Type type, string name, object value)
         {
             const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -2388,7 +1676,7 @@ namespace GK2Coop
 
         private static void SetEntryScene(Type mainGameType)
         {
-            object entryScene = GetStaticMember(mainGameType, "EntrySceneToLoad");
+            object entryScene = CoopDiagnostics.GetStatic(mainGameType, "EntrySceneToLoad");
             FieldInfo field = mainGameType.GetField("entrySceneToLoadCached", BindingFlags.Static | BindingFlags.NonPublic);
             if (field == null)
             {

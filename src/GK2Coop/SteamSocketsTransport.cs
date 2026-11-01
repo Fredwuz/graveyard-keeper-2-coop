@@ -162,6 +162,13 @@ namespace GK2Coop
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connecting:
                     if (isServer)
                     {
+                        string refused = Refusal(update.m_info);
+                        if (refused != null)
+                        {
+                            SteamNetworkingSockets.CloseConnection(connection, 0, refused, false);
+                            Log?.LogWarning("Steam transport: refused a connection from " + update.m_info.m_identityRemote.GetSteamID() + ": " + refused + ".");
+                            return;
+                        }
                         EResult accepted = SteamNetworkingSockets.AcceptConnection(connection);
                         if (accepted != EResult.k_EResultOK)
                         {
@@ -207,6 +214,28 @@ namespace GK2Coop
                     SteamNetworkingSockets.CloseConnection(connection, 0, "closed", false);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Why a joiner may not connect, or null. A Steam ID is public, so a connection through
+        /// Steam must come from a friend or a member of the hosted lobby; and only the lobby had a
+        /// size limit, so a "steam:&lt;id&gt;" join from Recent addresses went past MaxPlayers.
+        /// </summary>
+        private string Refusal(SteamNetConnectionInfo_t info)
+        {
+            if (connectionByClient.Count >= CoopSteamLobby.MaxPlayers - 1)
+            {
+                return "the session is full";
+            }
+            if (info.m_hListenSocket != listenP2P)
+            {
+                return null;
+            }
+            CSteamID remote = info.m_identityRemote.GetSteamID();
+            bool known = remote == SteamUser.GetSteamID() ||
+                         SteamFriends.HasFriend(remote, EFriendFlags.k_EFriendFlagImmediate) ||
+                         CoopSteamLobby.InHostedLobby(remote);
+            return known ? null : "not a Steam friend or a member of the lobby";
         }
 
         public override void Send(ulong clientId, ArraySegment<byte> payload, NetworkDelivery networkDelivery)

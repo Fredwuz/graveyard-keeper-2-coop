@@ -190,7 +190,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft end sync: could not apply a finished craft from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Craft end sync: could not apply a finished craft from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -248,15 +248,6 @@ namespace GK2Coop
         private static string Short(string id)
         {
             return string.IsNullOrEmpty(id) ? "?" : (id.Length > 8 ? id.Substring(0, 8) : id);
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

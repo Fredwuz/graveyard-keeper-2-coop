@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -173,7 +172,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Zombie sync: could not share a zombie assignment: " + Inner(ex).Message);
+                log.LogWarning("Zombie sync: could not share a zombie assignment: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -186,12 +185,12 @@ namespace GK2Coop
             }
             try
             {
-                SendPresence(netcode, null, KindPlace, IdOf(__result), Compress(CoopGameSerializer.Serialize(__result)));
+                SendPresence(netcode, null, KindPlace, IdOf(__result), Gzip.Compress(CoopGameSerializer.Serialize(__result)));
                 log.LogInfo("Zombie sync: shared the placement of " + CoopDiagnostics.GetMember(__result, "Name") + " " + Short(IdOf(__result)) + ".");
             }
             catch (Exception ex)
             {
-                log.LogWarning("Zombie sync: could not share a placed zombie: " + Inner(ex).Message);
+                log.LogWarning("Zombie sync: could not share a placed zombie: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -208,7 +207,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Zombie sync: could not share a picked-up zombie: " + Inner(ex).Message);
+                log.LogWarning("Zombie sync: could not share a picked-up zombie: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -326,7 +325,7 @@ namespace GK2Coop
                 {
                     if (kind == KindPlace)
                     {
-                        Place(id, Decompress(payload));
+                        Place(id, Gzip.Decompress(payload));
                     }
                     else if (kind == KindAttach)
                     {
@@ -344,7 +343,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Zombie sync: could not apply a zombie change from " + sender + " (kind " + kind + ", " + id + "): " + Inner(ex).Message + " at " + CoopDiagnostics.FirstFrames(Inner(ex)));
+                log.LogWarning("Zombie sync: could not apply a zombie change from " + sender + " (kind " + kind + ", " + id + "): " + Plugin.Unwrap(ex).Message + " at " + CoopDiagnostics.FirstFrames(Plugin.Unwrap(ex)));
             }
         }
 
@@ -485,7 +484,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Zombie sync: " + Inner(ex).Message);
+                log.LogWarning("Zombie sync: " + Plugin.Unwrap(ex).Message);
                 nextMotion = Time.unscaledTime + 10f;
             }
         }
@@ -550,7 +549,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Zombie sync: could not apply zombie motion: " + Inner(ex).Message);
+                log.LogWarning("Zombie sync: could not apply zombie motion: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -606,37 +605,6 @@ namespace GK2Coop
         private static string Short(string id)
         {
             return string.IsNullOrEmpty(id) ? "?" : (id.Length > 8 ? id.Substring(0, 8) : id);
-        }
-
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                input.CopyTo(output);
-                return output.ToArray();
-            }
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

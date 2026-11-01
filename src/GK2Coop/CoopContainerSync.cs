@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using BepInEx.Logging;
@@ -72,7 +71,6 @@ namespace GK2Coop
         private static readonly HashSet<string> changedOwners = new HashSet<string>();
         private static readonly Dictionary<string, int> lastAppliedRevision = new Dictionary<string, int>();
         private static readonly Dictionary<string, string> inventoryToOwner = new Dictionary<string, string>();
-        private static float mapBuiltAt = -1f;
         private static int detailedLogsLeft = 6;
 
         internal static bool Enabled { get; set; }
@@ -716,7 +714,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Could not publish container " + Shorten(ownerId) + ": " + Inner(ex).Message);
+                log.LogWarning("Could not publish container " + Shorten(ownerId) + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -772,7 +770,7 @@ namespace GK2Coop
         private static void SendRich(NetworkManager netcode, ulong target, string ownerId, object inventory, int revision)
         {
             object data = CoopDiagnostics.GetMember(inventory, "Data");
-            byte[] compressed = Compress(CoopGameSerializer.Serialize(data));
+            byte[] compressed = Gzip.Compress(CoopGameSerializer.Serialize(data));
             if (compressed.Length > MaxRichBytes)
             {
                 unresolved++;
@@ -817,7 +815,7 @@ namespace GK2Coop
                         return;
                     }
                     object container = ContainerOf(owner);
-                    if (container != null && ApplyRich(owner, container, Decompress(compressed)))
+                    if (container != null && ApplyRich(owner, container, Gzip.Decompress(compressed)))
                     {
                         changedOwners.Add(owner);
                         PublishRich(netcode, owner, container, sender);
@@ -833,7 +831,7 @@ namespace GK2Coop
                     return;
                 }
                 object inventory = ContainerOf(owner);
-                if (inventory != null && ApplyRich(owner, inventory, Decompress(compressed)))
+                if (inventory != null && ApplyRich(owner, inventory, Gzip.Decompress(compressed)))
                 {
                     lastAppliedRevision[owner] = revision;
                 }
@@ -841,7 +839,7 @@ namespace GK2Coop
             catch (Exception ex)
             {
                 unresolved++;
-                log.LogWarning("Could not apply a whole container from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Could not apply a whole container from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -873,43 +871,11 @@ namespace GK2Coop
                 applyingRemote = false;
             }
             richApplied++;
-            mapBuiltAt = -1f;
             if (detailedLogsLeft-- > 0)
             {
                 log.LogInfo("Applied whole container " + Shorten(ownerId) + ": [" + BuildSnapshot(inventory) + "]");
             }
             return true;
-        }
-
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                input.CopyTo(output);
-                return output.ToArray();
-            }
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
 
         // ------------------------------------------------------------------ identity
@@ -969,7 +935,6 @@ namespace GK2Coop
 
         private static void BuildOwnerMap()
         {
-            mapBuiltAt = Time.unscaledTime;
             inventoryToOwner.Clear();
             object worldData = GetWorldData();
             var scenes = worldData == null ? null : CoopDiagnostics.GetMember(worldData, "gameSceneDataList") as IEnumerable;

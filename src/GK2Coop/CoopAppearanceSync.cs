@@ -95,7 +95,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Appearance sync: " + Inner(ex).Message);
+                log.LogWarning("Appearance sync: " + Plugin.Unwrap(ex).Message);
                 nextTick = Time.unscaledTime + 10f;
             }
         }
@@ -154,7 +154,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Appearance sync: could not read a look from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Appearance sync: could not read a look from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -201,7 +201,7 @@ namespace GK2Coop
                 catch (Exception ex)
                 {
                     drawn[key] = stamp;
-                    log.LogWarning($"Appearance sync: could not draw {CoopSession.NameFor(clientId)}: {Inner(ex).Message}");
+                    log.LogWarning($"Appearance sync: could not draw {CoopSession.NameFor(clientId)}: {Plugin.Unwrap(ex).Message}");
                 }
             }
         }
@@ -235,7 +235,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Appearance sync: could not open the customization window: " + Inner(ex).Message);
+                log.LogWarning("Appearance sync: could not open the customization window: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -316,7 +316,7 @@ namespace GK2Coop
                 }
                 catch (Exception ex)
                 {
-                    log.LogWarning("Appearance sync: own palette failed, using the game's: " + Inner(ex).Message);
+                    log.LogWarning("Appearance sync: own palette failed, using the game's: " + Plugin.Unwrap(ex).Message);
                 }
             }
             object replacePalette = AccessTools.Method(helper, "GetColorReplacementPalette", new[] { customization.GetType() })?.Invoke(null, new[] { customization });
@@ -337,26 +337,12 @@ namespace GK2Coop
 
         private static byte[] Serialize(object customization)
         {
-            return (byte[])SerializerMethod("Serialize").MakeGenericMethod(customization.GetType()).Invoke(null, new[] { customization });
+            return (byte[])CoopGameSerializer.LazySerializerMethod("Serialize").MakeGenericMethod(customization.GetType()).Invoke(null, new[] { customization });
         }
 
         private static object Deserialize(byte[] raw, Type type)
         {
-            return SerializerMethod("Deserialize").MakeGenericMethod(type).Invoke(null, new object[] { raw });
-        }
-
-        private static MethodInfo SerializerMethod(string name)
-        {
-            foreach (MethodInfo method in Plugin.FindGameType("LazyBearTechnology.LazySerializer").GetMethods(BindingFlags.Static | BindingFlags.Public))
-            {
-                ParameterInfo[] parameters = method.GetParameters();
-                if (method.Name == name && method.IsGenericMethodDefinition && parameters.Length == 1 &&
-                    (name == "Serialize" || parameters[0].ParameterType == typeof(byte[])))
-                {
-                    return method;
-                }
-            }
-            throw new MissingMethodException("LazySerializer." + name);
+            return CoopGameSerializer.LazySerializerMethod("Deserialize").MakeGenericMethod(type).Invoke(null, new object[] { raw });
         }
 
         private static int Fnv(byte[] data)
@@ -374,15 +360,6 @@ namespace GK2Coop
             if (a.Length != b.Length) return false;
             for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
             return true;
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -369,11 +368,11 @@ namespace GK2Coop
                 {
                     return;
                 }
-                byte[] raw = Decompress(compressed);
+                byte[] raw = Gzip.Decompress(compressed);
                 applying = true;
                 try
                 {
-                    SerializerMethod("DeserializeInto").MakeGenericMethod(component.GetType()).Invoke(null, new[] { component, raw });
+                    CoopGameSerializer.LazySerializerMethod("DeserializeInto").MakeGenericMethod(component.GetType()).Invoke(null, new[] { component, raw });
                     // Rebinds every queued element to this station and refreshes the recipe cache.
                     component.GetType().GetMethod("Init").Invoke(component, new[] { wgo });
                     RaiseProgressChanged(component);
@@ -386,7 +385,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not apply a station state: " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not apply a station state: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -408,7 +407,7 @@ namespace GK2Coop
                 object inventory = wgo == null ? null : CoopDiagnostics.GetMember(wgo, "CraftableObjectCraftInventory");
                 object data = CoopDiagnostics.GetMember(inventory, "Data");
                 if (data == null) return;
-                object received = CoopGameSerializer.Deserialize(data.GetType(), Decompress(compressed));
+                object received = CoopGameSerializer.Deserialize(data.GetType(), Gzip.Decompress(compressed));
                 FieldInfo itemsField = AccessTools.Field(data.GetType(), "inventory");
                 if (itemsField == null) throw new MissingFieldException(data.GetType().Name, "inventory");
                 object oldItems = itemsField.GetValue(data);
@@ -427,7 +426,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not apply station inventory: " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not apply station inventory: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -469,7 +468,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not send station pickup: " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not send station pickup: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -503,7 +502,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not apply station pickup from " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not apply station pickup from " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -540,7 +539,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not reconcile a station pickup: " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not reconcile a station pickup: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -567,7 +566,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not remove crafting ingredients: " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not remove crafting ingredients: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -641,7 +640,7 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not apply a craft request from client " + sender + ": " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not apply a craft request from client " + sender + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -844,7 +843,7 @@ namespace GK2Coop
             catch (Exception ex)
             {
                 broadcastQueue.Clear();
-                log.LogWarning("Craft sync: station broadcast failed: " + Inner(ex).Message);
+                log.LogWarning("Craft sync: station broadcast failed: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -890,7 +889,7 @@ namespace GK2Coop
             catch (Exception ex)
             {
                 broadcastQueue.Clear();
-                log.LogWarning("Craft sync: station broadcast failed: " + Inner(ex).Message);
+                log.LogWarning("Craft sync: station broadcast failed: " + Plugin.Unwrap(ex).Message);
             }
         }
 
@@ -921,13 +920,13 @@ namespace GK2Coop
             }
             catch (Exception ex)
             {
-                log.LogWarning("Craft sync: could not send station states to client " + clientId + ": " + Inner(ex).Message);
+                log.LogWarning("Craft sync: could not send station states to client " + clientId + ": " + Plugin.Unwrap(ex).Message);
             }
         }
 
         private static void SendState(NetworkManager netcode, ulong? target, string wgoId, byte[] raw)
         {
-            byte[] compressed = Compress(raw);
+            byte[] compressed = Gzip.Compress(raw);
             if (compressed.Length > 60 * 1024)
             {
                 log.LogWarning($"Craft sync: station {Short(wgoId)} state is {compressed.Length} bytes; not sent.");
@@ -960,7 +959,7 @@ namespace GK2Coop
 
         private static void SendInventory(NetworkManager netcode, ulong? target, string wgoId, byte[] raw)
         {
-            byte[] compressed = Compress(raw);
+            byte[] compressed = Gzip.Compress(raw);
             if (compressed.Length > 60 * 1024)
             {
                 log.LogWarning($"Craft sync: station {Short(wgoId)} inventory is {compressed.Length} bytes; not sent.");
@@ -1094,29 +1093,10 @@ namespace GK2Coop
             Type type = component.GetType();
             if (!serializeFor.TryGetValue(type, out MethodInfo serialize))
             {
-                serialize = SerializerMethod("Serialize").MakeGenericMethod(type);
+                serialize = CoopGameSerializer.LazySerializerMethod("Serialize").MakeGenericMethod(type);
                 serializeFor[type] = serialize;
             }
             return (byte[])serialize.Invoke(null, new[] { component });
-        }
-
-        private static MethodInfo SerializerMethod(string name)
-        {
-            Type serializer = Plugin.FindGameType("LazyBearTechnology.LazySerializer");
-            foreach (MethodInfo method in serializer.GetMethods(BindingFlags.Static | BindingFlags.Public))
-            {
-                if (method.Name != name || !method.IsGenericMethodDefinition)
-                {
-                    continue;
-                }
-                ParameterInfo[] parameters = method.GetParameters();
-                if ((name == "Serialize" && parameters.Length == 1) ||
-                    (name == "DeserializeInto" && parameters.Length == 2 && parameters[1].ParameterType == typeof(byte[])))
-                {
-                    return method;
-                }
-            }
-            throw new MissingMethodException("LazySerializer." + name);
         }
 
         private static bool SameBytes(byte[] a, byte[] b)
@@ -1135,40 +1115,9 @@ namespace GK2Coop
             return true;
         }
 
-        private static byte[] Compress(byte[] raw)
-        {
-            using (var output = new MemoryStream())
-            {
-                using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, true))
-                {
-                    gzip.Write(raw, 0, raw.Length);
-                }
-                return output.ToArray();
-            }
-        }
-
-        private static byte[] Decompress(byte[] compressed)
-        {
-            using (var input = new GZipStream(new MemoryStream(compressed), CompressionMode.Decompress))
-            using (var output = new MemoryStream())
-            {
-                input.CopyTo(output);
-                return output.ToArray();
-            }
-        }
-
         private static string Short(string id)
         {
             return string.IsNullOrEmpty(id) ? "?" : (id.Length > 8 ? id.Substring(0, 8) : id);
-        }
-
-        private static Exception Inner(Exception ex)
-        {
-            while (ex is TargetInvocationException && ex.InnerException != null)
-            {
-                ex = ex.InnerException;
-            }
-            return ex;
         }
     }
 }

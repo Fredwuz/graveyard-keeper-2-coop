@@ -139,11 +139,21 @@ namespace GK2Coop
 
         private static bool StillIn(CSteamID lobby)
         {
-            CSteamID me = SteamUser.GetSteamID();
+            return IsMember(lobby, SteamUser.GetSteamID());
+        }
+
+        /// <summary>The host: whether this Steam user is in the lobby it opened for the session.</summary>
+        internal static bool InHostedLobby(CSteamID who)
+        {
+            return hostedLobby.IsValid() && IsMember(hostedLobby, who);
+        }
+
+        private static bool IsMember(CSteamID lobby, CSteamID who)
+        {
             int members = SteamMatchmaking.GetNumLobbyMembers(lobby);
             for (int i = 0; i < members; i++)
             {
-                if (SteamMatchmaking.GetLobbyMemberByIndex(lobby, i) == me)
+                if (SteamMatchmaking.GetLobbyMemberByIndex(lobby, i) == who)
                 {
                     return true;
                 }
