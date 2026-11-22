@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Use [Rousk's mod on the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3827479605) instead.** It has more features then this project and works better.
+
+
 # Graveyard Keeper 2 Co-op [BETA]
 
 > **NOTE:** This repository is a fork. The original author of this mod is
