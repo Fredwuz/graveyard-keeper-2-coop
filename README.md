@@ -1,6 +1,5 @@
 > [!IMPORTANT]
-> **Use [Rousk's mod on the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3827479605) instead.** It has more features then this project and works better.
-
+> **Use Rousk's mod instead: [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3827479605) · [Nexus Mods](https://www.nexusmods.com/graveyardkeeper2/mods/408).** It has more features than this project and works better.
 
 # Graveyard Keeper 2 Co-op [BETA]
 
